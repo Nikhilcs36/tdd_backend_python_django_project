@@ -14,7 +14,7 @@ services:
       sh -c "python manage.py runserver 0.0.0.0:8000"
     environment:
       - DB_HOST=db
-      - DB_NAME=devdb
+      - DB_NAME=tdd_backend_django_dev_db
       - DB_USER=devuser
       - DB_PASS=Admin
     depends_on:
@@ -25,7 +25,7 @@ services:
     volumes:
       - dev-db-data:/var/lib/mysql
     environment:
-      - MYSQL_DATABASE=devdb
+      - MYSQL_DATABASE=tdd_backend_django_dev_db
       - MYSQL_USER=devuser
       - MYSQL_PASSWORD=Admin
       - MYSQL_ROOT_PASSWORD=rootpass
