@@ -47,3 +47,31 @@ class ModelTests(TestCase):
 
         self.assertTrue(user.is_superuser)
         self.assertTrue(user.is_staff)
+
+    def test_create_user_with_duplicate_username(self):
+        """Test creating a user with a duplicate username raises an error"""
+        get_user_model().objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpassword'
+        )
+        with self.assertRaises(Exception):
+            get_user_model().objects.create_user(
+                username='testuser',
+                email='test2@example.com',
+                password='testpassword'
+            )
+
+    def test_create_user_with_duplicate_email(self):
+        """Test creating a user with a duplicate email raises an error"""
+        get_user_model().objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpassword'
+        )
+        with self.assertRaises(Exception):
+            get_user_model().objects.create_user(
+                username='testuser2',
+                email='test@example.com',
+                password='testpassword'
+            )
