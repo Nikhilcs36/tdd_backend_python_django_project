@@ -281,6 +281,6 @@ class PrivateUserApiTests(TestCase):
         payload = {'email': 'newemail@example.com'}
         res = self.client.put(ME_URL, payload)
 
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
         user.refresh_from_db()
         self.assertEqual(user.email, original_email)

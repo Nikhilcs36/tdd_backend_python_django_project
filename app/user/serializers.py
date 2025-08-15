@@ -38,13 +38,14 @@ class UserSerializer(serializers.ModelSerializer):
             validated_data.pop('passwordRepeat')
         return get_user_model().objects.create_user(**validated_data)
 
+    def __init__(self, *args, **kwargs):
+        """Dynamically set email to read-only for updates."""
+        super().__init__(*args, **kwargs)
+        if self.instance:
+            self.fields['email'].read_only = True
+
     def update(self, instance, validated_data):
         """Update a user, setting the password correctly and return it."""
-        if 'email' in validated_data:
-            raise serializers.ValidationError(
-                {"email": "Email cannot be updated."}
-            )
-
         password = validated_data.pop('password', None)
         user = super().update(instance, validated_data)
 
