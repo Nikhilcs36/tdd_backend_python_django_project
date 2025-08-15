@@ -5,6 +5,8 @@ from rest_framework import status
 from core.models import User
 
 CREATE_USER_URL = reverse('user:create')
+TOKEN_URL = reverse('user:token')
+ME_URL = reverse('user:me')
 
 
 class PublicUserApiTests(TestCase):
@@ -111,3 +113,174 @@ class PublicUserApiTests(TestCase):
         res = self.client.post(CREATE_USER_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_token_for_user(self):
+        """Test that a token is created for the user."""
+        user_details = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'password123',
+        }
+        User.objects.create_user(**user_details)
+
+        payload = {
+            'email': user_details['email'],
+            'password': user_details['password'],
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertIn('access', res.data)
+        self.assertIn('refresh', res.data)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['username'], user_details['username'])
+        self.assertEqual(res.data['email'], user_details['email'])
+
+    def test_create_token_bad_credentials(self):
+        """Test that a token is not created with bad credentials."""
+        user_details = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'password123',
+        }
+        User.objects.create_user(**user_details)
+
+        payload = {
+            'email': user_details['email'],
+            'password': 'badpassword',
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertNotIn('access', res.data)
+        self.assertNotIn('refresh', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_token_obtains_pair_view_uses_custom_serializer(self):
+        """Test that TokenObtainPairView is using the custom serializer."""
+        from user.views import CustomTokenObtainPairView
+        from user.serializers import CustomTokenObtainPairSerializer
+        self.assertEqual(
+            CustomTokenObtainPairView.serializer_class,
+            CustomTokenObtainPairSerializer
+        )
+
+
+class PrivateUserApiTests(TestCase):
+    """Test the private features of the user API."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='test@example.com',
+            password='password123',
+            username='testuser'
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_retrieve_profile_success(self):
+        """Test retrieving profile for logged in user."""
+        res = self.client.get(ME_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data, {
+            'username': self.user.username,
+            'email': self.user.email,
+        })
+
+    def test_post_me_not_allowed(self):
+        """Test that POST is not allowed on the me endpoint."""
+        res = self.client.post(ME_URL, {})
+        self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_refresh_token(self):
+        """Test that a refresh token can be used to get a new access token."""
+        user_details = {
+            'username': 'testuser2',
+            'email': 'test2@example.com',
+            'password': 'password123',
+        }
+        User.objects.create_user(**user_details)
+
+        payload = {
+            'email': user_details['email'],
+            'password': user_details['password'],
+        }
+        res = self.client.post(TOKEN_URL, payload)
+        refresh_token = res.data['refresh']
+
+        refresh_payload = {'refresh': refresh_token}
+        res = self.client.post(reverse('user:token_refresh'), refresh_payload)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn('access', res.data)
+
+    def test_invalid_refresh_token(self):
+        """Test that an invalid refresh token is rejected."""
+        refresh_payload = {'refresh': 'invalid_token'}
+        res = self.client.post(reverse('user:token_refresh'), refresh_payload)
+
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_access_protected_endpoint_with_token(self):
+        """Test accessing a protected endpoint with a valid token."""
+        user_details = {
+            'username': 'testuser3',
+            'email': 'test3@example.com',
+            'password': 'password123',
+        }
+        user = User.objects.create_user(**user_details)
+
+        payload = {
+            'email': user_details['email'],
+            'password': user_details['password'],
+        }
+        res = self.client.post(TOKEN_URL, payload)
+        access_token = res.data['access']
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'JWT {access_token}')
+        res = client.get(ME_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['email'], user.email)
+
+    def test_unauthenticated_access_to_protected_endpoint(self):
+        """Test that an unauthenticated user cannot access
+            a protected endpoint."""
+        client = APIClient()
+        res = client.get(ME_URL)
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_partial_update_user(self):
+        """Test partial update of the user profile."""
+        original_email = 'test_partial_update@example.com'
+        user = User.objects.create_user(
+            email=original_email,
+            password='password123',
+            username='testuser_partial_update'
+        )
+        self.client.force_authenticate(user=user)
+
+        payload = {'username': 'newusername'}
+        res = self.client.put(ME_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertEqual(user.username, payload['username'])
+        self.assertEqual(user.email, original_email)
+
+    def test_user_email_not_updated(self):
+        """Test that the email address cannot be updated."""
+        original_email = 'test_email_not_updated@example.com'
+        user = User.objects.create_user(
+            email=original_email,
+            password='password123',
+            username='testuser_email_not_updated'
+        )
+        self.client.force_authenticate(user=user)
+
+        payload = {'email': 'newemail@example.com'}
+        res = self.client.put(ME_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertEqual(user.email, original_email)
