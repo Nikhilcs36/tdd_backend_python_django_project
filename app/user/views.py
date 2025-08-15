@@ -21,3 +21,10 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         """Retrieve and return the authenticated user."""
         return self.request.user
+
+    def get_serializer(self, *args, **kwargs):
+        """
+        Instantiate the serializer with partial=True for PUT requests.
+        """
+        kwargs['partial'] = True
+        return super().get_serializer(*args, **kwargs)

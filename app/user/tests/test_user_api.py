@@ -249,3 +249,38 @@ class PrivateUserApiTests(TestCase):
         client = APIClient()
         res = client.get(ME_URL)
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_partial_update_user(self):
+        """Test partial update of the user profile."""
+        original_email = 'test_partial_update@example.com'
+        user = User.objects.create_user(
+            email=original_email,
+            password='password123',
+            username='testuser_partial_update'
+        )
+        self.client.force_authenticate(user=user)
+
+        payload = {'username': 'newusername'}
+        res = self.client.put(ME_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertEqual(user.username, payload['username'])
+        self.assertEqual(user.email, original_email)
+
+    def test_user_email_not_updated(self):
+        """Test that the email address cannot be updated."""
+        original_email = 'test_email_not_updated@example.com'
+        user = User.objects.create_user(
+            email=original_email,
+            password='password123',
+            username='testuser_email_not_updated'
+        )
+        self.client.force_authenticate(user=user)
+
+        payload = {'email': 'newemail@example.com'}
+        res = self.client.put(ME_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        user.refresh_from_db()
+        self.assertEqual(user.email, original_email)

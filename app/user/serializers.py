@@ -8,7 +8,7 @@ class UserSerializer(serializers.ModelSerializer):
     """Serializer for the user object."""
     passwordRepeat = serializers.CharField(
         write_only=True,
-        required=True,
+        required=False,
         style={'input_type': 'password'}
     )
 
@@ -21,16 +21,38 @@ class UserSerializer(serializers.ModelSerializer):
         """
         Validate that the password and passwordRepeat fields match.
         """
-        if attrs['password'] != attrs['passwordRepeat']:
+        if 'password' in attrs and 'passwordRepeat' in attrs:
+            if attrs['password'] != attrs['passwordRepeat']:
+                raise serializers.ValidationError(
+                    {"password": "Password fields didn't match."}
+                )
+        elif 'password' in attrs and 'passwordRepeat' not in attrs:
             raise serializers.ValidationError(
-                {"password": "Password fields didn't match."}
+                {"passwordRepeat": "This field is required."}
             )
         return attrs
 
     def create(self, validated_data):
         """Create a new user with encrypted password and return it."""
-        validated_data.pop('passwordRepeat')
+        if 'passwordRepeat' in validated_data:
+            validated_data.pop('passwordRepeat')
         return get_user_model().objects.create_user(**validated_data)
+
+    def update(self, instance, validated_data):
+        """Update a user, setting the password correctly and return it."""
+        if 'email' in validated_data:
+            raise serializers.ValidationError(
+                {"email": "Email cannot be updated."}
+            )
+
+        password = validated_data.pop('password', None)
+        user = super().update(instance, validated_data)
+
+        if password:
+            user.set_password(password)
+            user.save()
+
+        return user
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
