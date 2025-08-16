@@ -1,6 +1,8 @@
 from rest_framework import generics, permissions
 from .serializers import UserSerializer, CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+from core.models import User
+from .permissions import IsSuperUser, IsStaffOrSuperUser
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -28,3 +30,17 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
         """
         kwargs['partial'] = True
         return super().get_serializer(*args, **kwargs)
+
+
+class UserListView(generics.ListAPIView):
+    """List all users."""
+    serializer_class = UserSerializer
+    queryset = User.objects.all()
+    permission_classes = [IsStaffOrSuperUser]
+
+
+class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete a user's details."""
+    serializer_class = UserSerializer
+    queryset = User.objects.all()
+    permission_classes = [IsSuperUser]
