@@ -1,5 +1,10 @@
-from rest_framework import generics, permissions
-from .serializers import UserSerializer, CustomTokenObtainPairSerializer
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from .serializers import (
+    UserSerializer,
+    CustomTokenObtainPairSerializer,
+    LogoutSerializer
+)
 from rest_framework_simplejwt.views import TokenObtainPairView
 from core.models import User
 from .permissions import IsSuperUser, IsStaffOrSuperUser
@@ -44,3 +49,16 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     queryset = User.objects.all()
     permission_classes = [IsSuperUser]
+
+
+class LogoutView(generics.GenericAPIView):
+    """Logout the authenticated user."""
+    serializer_class = LogoutSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        """Blacklist the refresh token."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
