@@ -452,7 +452,8 @@ class StaffUserApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_logout_blacklists_refresh_token(self):
-        """Test that logging out blacklists the refresh token."""
+        """Test that logging out blacklists the refresh token.
+        (Core token blacklisting verification)"""
         refresh = RefreshToken.for_user(self.user)
 
         payload = {'refresh': str(refresh)}
@@ -464,6 +465,25 @@ class StaffUserApiTests(TestCase):
             token__token=str(refresh)
         ).exists()
         self.assertTrue(is_blacklisted)
+
+    def test_login_and_logout_success(self):
+        """Test that a user can login and logout successfully.
+        (End-to-end authentication workflow test)"""
+        # Login to get refresh token
+        login_res = self.client.post(TOKEN_URL, {
+            'email': self.user.email,
+            'password': 'password123',
+        })
+        refresh_token = login_res.data['refresh']
+
+        # Logout with the obtained refresh token
+        logout_res = self.client.post(LOGOUT_URL, {'refresh': refresh_token})
+
+        self.assertEqual(logout_res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertTrue(
+            BlacklistedToken.objects.filter(
+                token__token=refresh_token).exists()
+        )
 
     def test_logout_with_invalid_token(self):
         """Test that logging out with an invalid token returns an error."""
