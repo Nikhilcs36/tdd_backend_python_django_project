@@ -3,11 +3,15 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 from core.models import User
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+
 
 CREATE_USER_URL = reverse('user:create')
 TOKEN_URL = reverse('user:token')
 ME_URL = reverse('user:me')
 USERS_URL = reverse('user:users')
+LOGOUT_URL = reverse('user:logout')
 
 
 class PublicUserApiTests(TestCase):
@@ -446,3 +450,48 @@ class StaffUserApiTests(TestCase):
         res = self.client.patch(url, payload)
 
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_logout_blacklists_refresh_token(self):
+        """Test that logging out blacklists the refresh token.
+        (Core token blacklisting verification)"""
+        refresh = RefreshToken.for_user(self.user)
+
+        payload = {'refresh': str(refresh)}
+        res = self.client.post(LOGOUT_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+
+        is_blacklisted = BlacklistedToken.objects.filter(
+            token__token=str(refresh)
+        ).exists()
+        self.assertTrue(is_blacklisted)
+
+    def test_login_and_logout_success(self):
+        """Test that a user can login and logout successfully.
+        (End-to-end authentication workflow test)"""
+        # Login to get refresh token
+        login_res = self.client.post(TOKEN_URL, {
+            'email': self.user.email,
+            'password': 'password123',
+        })
+        refresh_token = login_res.data['refresh']
+
+        # Logout with the obtained refresh token
+        logout_res = self.client.post(LOGOUT_URL, {'refresh': refresh_token})
+
+        self.assertEqual(logout_res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertTrue(
+            BlacklistedToken.objects.filter(
+                token__token=refresh_token).exists()
+        )
+
+    def test_logout_with_invalid_token(self):
+        """Test that logging out with an invalid token returns an error."""
+        payload = {'refresh': 'invalid_token'}
+        res = self.client.post(LOGOUT_URL, payload)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_logout_requires_refresh_token(self):
+        """Test that logging out requires a refresh token."""
+        res = self.client.post(LOGOUT_URL, {})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
