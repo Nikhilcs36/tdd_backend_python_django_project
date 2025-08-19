@@ -7,6 +7,7 @@ from core.models import User
 CREATE_USER_URL = reverse('user:create')
 TOKEN_URL = reverse('user:token')
 ME_URL = reverse('user:me')
+USERS_URL = reverse('user:users')
 
 
 class PublicUserApiTests(TestCase):
@@ -284,3 +285,164 @@ class PrivateUserApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         user.refresh_from_db()
         self.assertEqual(user.email, original_email)
+
+    def test_list_users_for_non_admin_user_fail(self):
+        """Test that non-admin users cannot list users."""
+        res = self.client.get(USERS_URL)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_retrieve_specific_user_detail_for_non_admin_fail(self):
+        """Test retrieving a specific user's details for non-admin fails."""
+        user = User.objects.create_user(
+            email='test2@example.com',
+            password='password123',
+            username='testuser2'
+        )
+        url = reverse('user:user-detail', args=[user.id])
+        res = self.client.get(url)
+
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_update_user_for_non_admin_fail(self):
+        """Test updating a user for non-admin fails."""
+        user = User.objects.create_user(
+            email='test2@example.com',
+            password='password123',
+            username='testuser2'
+        )
+        url = reverse('user:user-detail', args=[user.id])
+        payload = {'username': 'newusername'}
+        res = self.client.patch(url, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class AdminUserApiTests(TestCase):
+    """Test the admin features of the user API."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            email='admin@example.com',
+            password='password123',
+            username='adminuser'
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_retrieve_users_list_success(self):
+        """Test retrieving a list of users for admin."""
+        User.objects.create_user(
+            email='test2@example.com',
+            password='password123',
+            username='testuser2'
+        )
+        User.objects.create_user(
+            email='test3@example.com',
+            password='password123',
+            username='testuser3'
+        )
+
+        res = self.client.get(USERS_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 3)
+        self.assertEqual(res.data[0]['username'], self.user.username)
+        self.assertEqual(res.data[1]['username'], 'testuser2')
+        self.assertEqual(res.data[2]['username'], 'testuser3')
+
+    def test_retrieve_specific_user_detail_success(self):
+        """Test retrieving a specific user's details for admin."""
+        user = User.objects.create_user(
+            email='test2@example.com',
+            password='password123',
+            username='testuser2'
+        )
+        url = reverse('user:user-detail', args=[user.id])
+        res = self.client.get(url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['username'], user.username)
+
+    def test_delete_user_success(self):
+        """Test deleting a user for admin."""
+        user = User.objects.create_user(
+            email='test2@example.com',
+            password='password123',
+            username='testuser2'
+        )
+        url = reverse('user:user-detail', args=[user.id])
+        res = self.client.delete(url)
+
+        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(User.objects.filter(id=user.id).exists())
+
+    def test_update_user_success(self):
+        """Test updating a user for admin."""
+        user = User.objects.create_user(
+            email='test2@example.com',
+            password='password123',
+            username='testuser2'
+        )
+        url = reverse('user:user-detail', args=[user.id])
+        payload = {'username': 'newusername'}
+        res = self.client.patch(url, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertEqual(user.username, payload['username'])
+
+
+class StaffUserApiTests(TestCase):
+    """Test the staff features of the user API."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='staff@example.com',
+            password='password123',
+            username='staffuser',
+            is_staff=True
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_list_users_for_staff_user_success(self):
+        """Test that staff users can list users."""
+        res = self.client.get(USERS_URL)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_retrieve_specific_user_detail_for_staff_fail(self):
+        """Test retrieving a specific user's details for staff fails."""
+        user = User.objects.create_user(
+            email='test2@example.com',
+            password='password123',
+            username='testuser2'
+        )
+        url = reverse('user:user-detail', args=[user.id])
+        res = self.client.get(url)
+
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_delete_user_for_staff_fail(self):
+        """Test deleting a user for staff fails."""
+        user = User.objects.create_user(
+            email='test2@example.com',
+            password='password123',
+            username='testuser2'
+        )
+        url = reverse('user:user-detail', args=[user.id])
+        res = self.client.delete(url)
+
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_update_user_for_staff_fail(self):
+        """Test updating a user for staff fails."""
+        user = User.objects.create_user(
+            email='test2@example.com',
+            password='password123',
+            username='testuser2'
+        )
+        url = reverse('user:user-detail', args=[user.id])
+        payload = {'username': 'newusername'}
+        res = self.client.patch(url, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
