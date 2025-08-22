@@ -93,6 +93,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['access'] = str(refresh.access_token)
 
         # Add custom data to the response
+        data.update({'id': user.id})
         data.update({'username': user.username})
         data.update({'email': user.email})
         return data
