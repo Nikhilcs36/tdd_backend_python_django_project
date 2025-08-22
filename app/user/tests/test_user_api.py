@@ -137,6 +137,8 @@ class PublicUserApiTests(TestCase):
         self.assertIn('access', res.data)
         self.assertIn('refresh', res.data)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['id'], User.objects.get(
+            email=user_details['email']).id)
         self.assertEqual(res.data['username'], user_details['username'])
         self.assertEqual(res.data['email'], user_details['email'])
 
