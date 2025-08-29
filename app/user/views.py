@@ -8,6 +8,7 @@ from .serializers import (
 from rest_framework_simplejwt.views import TokenObtainPairView
 from core.models import User
 from .permissions import IsSuperUser, IsStaffOrSuperUser
+from .pagination import UserPagination
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -42,6 +43,7 @@ class UserListView(generics.ListAPIView):
     serializer_class = UserSerializer
     queryset = User.objects.all()
     permission_classes = [IsStaffOrSuperUser]
+    pagination_class = UserPagination  # Enable pagination
 
 
 class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
