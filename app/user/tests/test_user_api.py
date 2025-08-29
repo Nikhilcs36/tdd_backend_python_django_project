@@ -351,10 +351,95 @@ class AdminUserApiTests(TestCase):
         res = self.client.get(USERS_URL)
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(res.data), 3)
-        self.assertEqual(res.data[0]['username'], self.user.username)
-        self.assertEqual(res.data[1]['username'], 'testuser2')
-        self.assertEqual(res.data[2]['username'], 'testuser3')
+        # With pagination, response structure changes to include metadata
+        self.assertEqual(len(res.data['results']), 3)
+        self.assertEqual(
+            res.data['results'][0]['username'], self.user.username
+        )
+        self.assertEqual(res.data['results'][1]['username'], 'testuser2')
+        self.assertEqual(res.data['results'][2]['username'], 'testuser3')
+        self.assertEqual(res.data['count'], 3)
+        self.assertIsNone(res.data['previous'])
+        self.assertIsNone(res.data['next'])
+
+    def test_pagination_default_page_size(self):
+        """Test that pagination defaults to 3 users per page."""
+        # Create 5 additional users (total 6 including admin)
+        for i in range(5):
+            User.objects.create_user(
+                email=f'test{i}@example.com',
+                password='password123',
+                username=f'testuser{i}'
+            )
+
+        res = self.client.get(USERS_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data['results']), 3)  # Default page size
+        self.assertEqual(res.data['count'], 6)  # Total users
+        self.assertIsNone(res.data['previous'])
+        self.assertIsNotNone(res.data['next'])  # Should have next page
+
+    def test_pagination_page_size_parameter(self):
+        """Test that page size can be customized via query parameter."""
+        # Create 5 additional users (total 6 including admin)
+        for i in range(5):
+            User.objects.create_user(
+                email=f'test{i}@example.com',
+                password='password123',
+                username=f'testuser{i}'
+            )
+
+        res = self.client.get(USERS_URL, {'size': 5})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data['results']), 5)  # Custom page size
+        self.assertEqual(res.data['count'], 6)  # Total users
+        self.assertIsNone(res.data['previous'])
+        self.assertIsNotNone(res.data['next'])  # Should have next page
+
+    def test_pagination_page_parameter(self):
+        """Test that pagination works with page parameter."""
+        # Create 5 additional users (total 6 including admin)
+        for i in range(5):
+            User.objects.create_user(
+                email=f'test{i}@example.com',
+                password='password123',
+                username=f'testuser{i}'
+            )
+
+        # Get first page
+        res_page1 = self.client.get(USERS_URL, {'size': 3})
+        self.assertEqual(res_page1.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res_page1.data['results']), 3)
+        self.assertIsNone(res_page1.data['previous'])
+        self.assertIsNotNone(res_page1.data['next'])
+
+        # Get second page
+        res_page2 = self.client.get(USERS_URL, {'size': 3, 'page': 2})
+        self.assertEqual(res_page2.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res_page2.data['results']), 3)
+        self.assertIsNotNone(res_page2.data['previous'])
+        self.assertIsNone(res_page2.data['next'])
+
+    def test_pagination_max_page_size_limit(self):
+        """Test that page size is limited to maximum allowed value."""
+        # Create 10 additional users (total 11 including admin)
+        for i in range(10):
+            User.objects.create_user(
+                email=f'test{i}@example.com',
+                password='password123',
+                username=f'testuser{i}'
+            )
+
+        res = self.client.get(USERS_URL, {'size': 1000})  # Very large size
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        # Should be limited to max_page_size (default 100)
+        self.assertLessEqual(len(res.data['results']), 100)
+        self.assertEqual(res.data['count'], 11)  # Total users
+        self.assertIsNone(res.data['previous'])
+        self.assertIsNone(res.data['next'])  # All users on one page
 
     def test_retrieve_specific_user_detail_success(self):
         """Test retrieving a specific user's details for admin."""
@@ -482,10 +567,9 @@ class StaffUserApiTests(TestCase):
         logout_res = self.client.post(LOGOUT_URL, {'refresh': refresh_token})
 
         self.assertEqual(logout_res.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertTrue(
-            BlacklistedToken.objects.filter(
-                token__token=refresh_token).exists()
-        )
+        self.assertTrue(BlacklistedToken.objects.filter(
+            token__token=refresh_token
+        ).exists())
 
     def test_logout_with_invalid_token(self):
         """Test that logging out with an invalid token returns an error."""
