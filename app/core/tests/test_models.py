@@ -17,6 +17,7 @@ class ModelTests(TestCase):
         self.assertEqual(user.username, username)
         self.assertEqual(user.email, email)
         self.assertTrue(user.check_password(password))
+        self.assertIsNotNone(user.id)  # Verify ID field exists
         self.assertIsNotNone(user.date_joined)
         self.assertTrue(user.is_active)
         self.assertFalse(user.is_staff)
