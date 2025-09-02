@@ -35,6 +35,7 @@ class PublicUserApiTests(TestCase):
         user = User.objects.get(email=payload['email'])
         self.assertEqual(user.username, payload['username'])
         self.assertTrue(user.check_password(payload['password']))
+        self.assertIsNotNone(user.id)  # Verify ID field exists
         self.assertNotIn('password', res.data)
 
     def test_user_with_email_exists_error(self):
@@ -189,6 +190,7 @@ class PrivateUserApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data, {
+            'id': self.user.id,
             'username': self.user.username,
             'email': self.user.email,
         })
