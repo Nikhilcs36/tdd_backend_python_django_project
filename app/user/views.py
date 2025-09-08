@@ -52,13 +52,6 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     permission_classes = [IsSuperUser]
 
-    def get_serializer(self, *args, **kwargs):
-        """
-        Instantiate the serializer with partial=True for PUT/PATCH requests.
-        """
-        kwargs['partial'] = True
-        return super().get_serializer(*args, **kwargs)
-
 
 class LogoutView(generics.GenericAPIView):
     """Logout the authenticated user."""
