@@ -485,15 +485,17 @@ class AdminUserApiTests(TestCase):
         self.assertEqual(user.username, payload['username'])
 
     def test_partial_update_user_without_password_success(self):
-        """Test partial update of user details without providing password fields."""
+        """Test partial update of user details without providing
+        password fields."""
         user = User.objects.create_user(
             email='test_partial@example.com',
             password='password123',
             username='testuser_partial'
         )
         url = reverse('user:user-detail', args=[user.id])
-        
-        # Update username without providing password fields (should work with partial=True)
+
+        # Update username without providing password fields
+        # (should work with partial=True)
         payload = {'username': 'updated_username'}
         res = self.client.patch(url, payload)
 
@@ -504,14 +506,15 @@ class AdminUserApiTests(TestCase):
         self.assertTrue(user.check_password('password123'))
 
     def test_partial_update_user_with_password_success(self):
-        """Test partial update of user details with password fields provided."""
+        """Test partial update of user details with password
+        fields provided."""
         user = User.objects.create_user(
             email='test_password@example.com',
             password='oldpassword',
             username='testuser_password'
         )
         url = reverse('user:user-detail', args=[user.id])
-        
+
         # Update password with both password and passwordRepeat fields
         payload = {
             'password': 'newpassword123',
@@ -609,9 +612,11 @@ class StaffUserApiTests(TestCase):
         logout_res = self.client.post(LOGOUT_URL, {'refresh': refresh_token})
 
         self.assertEqual(logout_res.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertTrue(BlacklistedToken.objects.filter(
-            token__token=refresh_token
-        ).exists())
+        self.assertTrue(
+            BlacklistedToken.objects.filter(
+                token__token=refresh_token
+            ).exists()
+        )
 
     def test_logout_with_invalid_token(self):
         """Test that logging out with an invalid token returns an error."""
