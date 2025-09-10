@@ -16,7 +16,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = get_user_model()
-        fields = ('id', 'username', 'email', 'password', 'passwordRepeat')
+        fields = ('id', 'username', 'email', 'password',
+                  'passwordRepeat', 'image')
         extra_kwargs = {'password': {'write_only': True, 'min_length': 5}}
 
     def validate(self, attrs):
@@ -56,6 +57,22 @@ class UserSerializer(serializers.ModelSerializer):
             user.save()
 
         return user
+
+    def validate_image(self, value):
+        """
+        Check that the uploaded file is a valid image (JPG, JPEG, or PNG).
+        """
+        if not value:
+            return value
+
+        allowed_extensions = ['jpg', 'jpeg', 'png']
+        extension = value.name.split('.')[-1].lower()
+        if extension not in allowed_extensions:
+            raise serializers.ValidationError(
+                'Invalid image format. Only JPG, JPEG, and PNG are allowed.'
+            )
+
+        return value
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
