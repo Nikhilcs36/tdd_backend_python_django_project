@@ -5,6 +5,8 @@ from rest_framework import status
 from core.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+from django.conf import settings
+import os
 
 
 CREATE_USER_URL = reverse('user:create')
@@ -184,6 +186,13 @@ class PrivateUserApiTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
+    def tearDown(self):
+        self.user.refresh_from_db()
+        if self.user.image:
+            image_path = self.user.image.path
+            if os.path.exists(image_path):
+                os.remove(image_path)
+
     def test_retrieve_profile_success(self):
         """Test retrieving profile for logged in user."""
         res = self.client.get(ME_URL)
@@ -193,6 +202,7 @@ class PrivateUserApiTests(TestCase):
             'id': self.user.id,
             'username': self.user.username,
             'email': self.user.email,
+            'image': None,
         })
 
     def test_post_me_not_allowed(self):
@@ -323,6 +333,37 @@ class PrivateUserApiTests(TestCase):
         res = self.client.patch(url, payload)
 
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_upload_image_to_user_profile_with_existing_image_success(self):
+        """Test uploading an existing image to the user profile."""
+        image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '29-png.png'
+        )
+        with open(image_path, 'rb') as image_file:
+            payload = {'image': image_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertIn('image', res.data)
+        self.assertTrue(os.path.exists(self.user.image.path))
+
+    def test_upload_image_invalid_file_type_fail(self):
+        """Test uploading an invalid file type for the user profile."""
+        with open('test.txt', 'w') as f:
+            f.write('not an image')
+        with open('test.txt', 'rb') as invalid_file:
+            payload = {'image': invalid_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.image)
+        os.remove('test.txt')
 
 
 class AdminUserApiTests(TestCase):
