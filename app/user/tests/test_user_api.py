@@ -399,6 +399,11 @@ class PrivateUserApiTests(TestCase):
         )
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data, {
+            "image": [
+                "Image size cannot exceed 2097152 bytes."
+            ]
+        })
 
     def test_clear_user_image_success(self):
         """Test clearing the user's profile image."""
