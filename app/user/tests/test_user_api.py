@@ -361,9 +361,66 @@ class PrivateUserApiTests(TestCase):
             )
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('image', res.data)
+        self.assertEqual(
+            res.data['image'][0],
+            'Invalid image format. Only JPG, JPEG, and PNG are allowed.'
+        )
         self.user.refresh_from_db()
         self.assertFalse(self.user.image)
         os.remove('test.txt')
+
+    def test_image_url_is_absolute(self):
+        """Test that the image URL in the response is an absolute URL."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        image = SimpleUploadedFile(
+            "test.png", b"file_content", content_type="image/png"
+        )
+        payload = {'image': image}
+        res = self.client.patch(
+            ME_URL, payload, format='multipart'
+        )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn('image', res.data)
+        self.assertTrue(res.data['image'].startswith('http'))
+
+    def test_upload_image_too_large_fail(self):
+        """Test uploading an image that is too large."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        # Create a file that is larger than the MAX_UPLOAD_SIZE
+        large_file_content = b'a' * (settings.MAX_UPLOAD_SIZE + 1)
+        image = SimpleUploadedFile(
+            "large_image.png", large_file_content, content_type="image/png"
+        )
+        payload = {'image': image}
+        res = self.client.patch(
+            ME_URL, payload, format='multipart'
+        )
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_clear_user_image_success(self):
+        """Test clearing the user's profile image."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        image = SimpleUploadedFile(
+            "test.png", b"file_content", content_type="image/png"
+        )
+        payload = {'image': image}
+        res = self.client.patch(
+            ME_URL, payload, format='multipart'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.image)
+
+        # Now, clear the image
+        payload = {'image': ''}
+        res = self.client.patch(ME_URL, payload, format='multipart')
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.image)
 
 
 class AdminUserApiTests(TestCase):
@@ -509,6 +566,31 @@ class AdminUserApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(User.objects.filter(id=user.id).exists())
+
+    def test_delete_user_with_image_success(self):
+        """Test deleting a user with an image for admin."""
+        user = User.objects.create_user(
+            email='test2@example.com',
+            password='password123',
+            username='testuser2'
+        )
+        # Correctly create a dummy file for the test
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        image = SimpleUploadedFile(
+            "test.png", b"file_content", content_type="image/png"
+        )
+        user.image = image
+        user.save()
+
+        self.assertTrue(os.path.exists(user.image.path))
+        image_path_to_check = user.image.path
+
+        url = reverse('user:user-detail', args=[user.id])
+        res = self.client.delete(url)
+
+        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(User.objects.filter(id=user.id).exists())
+        self.assertFalse(os.path.exists(image_path_to_check))
 
     def test_update_user_success(self):
         """Test updating a user for admin."""

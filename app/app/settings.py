@@ -161,3 +161,7 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'core.authentication.EmailBackend',
 ]
+
+# Maximum upload size for images (in bytes)
+# 2MB
+MAX_UPLOAD_SIZE = 2 * 1024 * 1024
