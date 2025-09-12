@@ -427,6 +427,47 @@ class PrivateUserApiTests(TestCase):
         self.user.refresh_from_db()
         self.assertFalse(self.user.image)
 
+    def test_replace_user_image_deletes_old_file(self):
+        """Test that replacing a user's image deletes the old image file."""
+        # Upload first image
+        first_image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '31-png.png'
+        )
+        with open(first_image_path, 'rb') as first_image_file:
+            payload = {'image': first_image_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.image)
+
+        # Store the path of the first uploaded image
+        first_uploaded_image_path = self.user.image.path
+        self.assertTrue(os.path.exists(first_uploaded_image_path))
+
+        # Upload second image (replace the first one)
+        second_image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '45-png.png'
+        )
+        with open(second_image_path, 'rb') as second_image_file:
+            payload = {'image': second_image_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.image)
+
+        # Verify the old image file was deleted from filesystem
+        self.assertFalse(os.path.exists(first_uploaded_image_path))
+
+        # Verify the new image file exists
+        self.assertTrue(os.path.exists(self.user.image.path))
+        self.assertNotEqual(self.user.image.path, first_uploaded_image_path)
+
 
 class AdminUserApiTests(TestCase):
     """Test the admin features of the user API."""
