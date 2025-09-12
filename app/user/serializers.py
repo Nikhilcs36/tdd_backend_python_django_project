@@ -61,7 +61,9 @@ class UserSerializer(serializers.ModelSerializer):
         if validated_data.get('image') == '':
             validated_data['image'] = None
 
-        if validated_data.get('image') is None and instance.image:
+        # Delete old image file if it exists and the image field is being
+        # updated (either with a new image or by clearing it)
+        if instance.image and 'image' in validated_data:
             instance.image.delete(save=False)  # Delete old file from storage
 
         user = super().update(instance, validated_data)
