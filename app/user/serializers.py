@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
@@ -13,10 +14,15 @@ class UserSerializer(serializers.ModelSerializer):
         required=False,
         style={'input_type': 'password'}
     )
+    image = serializers.FileField(
+        max_length=100, allow_empty_file=True, use_url=True, required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = get_user_model()
-        fields = ('id', 'username', 'email', 'password', 'passwordRepeat')
+        fields = ('id', 'username', 'email', 'password',
+                  'passwordRepeat', 'image')
         extra_kwargs = {'password': {'write_only': True, 'min_length': 5}}
 
     def validate(self, attrs):
@@ -49,6 +55,17 @@ class UserSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """Update a user, setting the password correctly and return it."""
         password = validated_data.pop('password', None)
+
+        # Handle clearing the image.
+        # An empty string from multipart form data indicates clearing the image
+        if validated_data.get('image') == '':
+            validated_data['image'] = None
+
+        # Delete old image file if it exists and the image field is being
+        # updated (either with a new image or by clearing it)
+        if instance.image and 'image' in validated_data:
+            instance.image.delete(save=False)  # Delete old file from storage
+
         user = super().update(instance, validated_data)
 
         if password:
@@ -56,6 +73,30 @@ class UserSerializer(serializers.ModelSerializer):
             user.save()
 
         return user
+
+    def validate_image(self, value):
+        """
+        Check that the uploaded file is a valid image (JPG, JPEG, or PNG)
+        and that its size is within the allowed limit.
+        """
+        if not value:
+            return value
+
+        # Check file extension
+        allowed_extensions = ['jpg', 'jpeg', 'png']
+        extension = value.name.split('.')[-1].lower()
+        if extension not in allowed_extensions:
+            raise serializers.ValidationError(
+                'Invalid image format. Only JPG, JPEG, and PNG are allowed.'
+            )
+
+        # Check file size
+        if value.size > settings.MAX_UPLOAD_SIZE:
+            raise serializers.ValidationError(
+                f'Image size cannot exceed {settings.MAX_UPLOAD_SIZE} bytes.'
+            )
+
+        return value
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

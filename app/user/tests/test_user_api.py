@@ -5,6 +5,8 @@ from rest_framework import status
 from core.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+from django.conf import settings
+import os
 
 
 CREATE_USER_URL = reverse('user:create')
@@ -184,6 +186,13 @@ class PrivateUserApiTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
+    def tearDown(self):
+        self.user.refresh_from_db()
+        if self.user.image:
+            image_path = self.user.image.path
+            if os.path.exists(image_path):
+                os.remove(image_path)
+
     def test_retrieve_profile_success(self):
         """Test retrieving profile for logged in user."""
         res = self.client.get(ME_URL)
@@ -193,6 +202,7 @@ class PrivateUserApiTests(TestCase):
             'id': self.user.id,
             'username': self.user.username,
             'email': self.user.email,
+            'image': None,
         })
 
     def test_post_me_not_allowed(self):
@@ -323,6 +333,140 @@ class PrivateUserApiTests(TestCase):
         res = self.client.patch(url, payload)
 
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_upload_image_to_user_profile_with_existing_image_success(self):
+        """Test uploading an existing image to the user profile."""
+        image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '29-png.png'
+        )
+        with open(image_path, 'rb') as image_file:
+            payload = {'image': image_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertIn('image', res.data)
+        self.assertTrue(os.path.exists(self.user.image.path))
+
+    def test_upload_image_invalid_file_type_fail(self):
+        """Test uploading an invalid file type for the user profile."""
+        with open('test.txt', 'w') as f:
+            f.write('not an image')
+        with open('test.txt', 'rb') as invalid_file:
+            payload = {'image': invalid_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('image', res.data)
+        self.assertEqual(
+            res.data['image'][0],
+            'Invalid image format. Only JPG, JPEG, and PNG are allowed.'
+        )
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.image)
+        os.remove('test.txt')
+
+    def test_image_url_is_absolute(self):
+        """Test that the image URL in the response is an absolute URL."""
+        image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '29-png.png'
+        )
+        with open(image_path, 'rb') as image_file:
+            payload = {'image': image_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn('image', res.data)
+        self.assertTrue(res.data['image'].startswith('http'))
+
+    def test_upload_image_too_large_fail(self):
+        """Test uploading an image that is too large."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        # Create a file that is larger than the MAX_UPLOAD_SIZE
+        large_file_content = b'a' * (settings.MAX_UPLOAD_SIZE + 1)
+        image = SimpleUploadedFile(
+            "large_image.png", large_file_content, content_type="image/png"
+        )
+        payload = {'image': image}
+        res = self.client.patch(
+            ME_URL, payload, format='multipart'
+        )
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data, {
+            "image": [
+                "Image size cannot exceed 2097152 bytes."
+            ]
+        })
+
+    def test_clear_user_image_success(self):
+        """Test clearing the user's profile image."""
+        image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '31-png.png'
+        )
+        with open(image_path, 'rb') as image_file:
+            payload = {'image': image_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.image)
+
+        # Now, clear the image
+        payload = {'image': ''}
+        res = self.client.patch(ME_URL, payload, format='multipart')
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.image)
+
+    def test_replace_user_image_deletes_old_file(self):
+        """Test that replacing a user's image deletes the old image file."""
+        # Upload first image
+        first_image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '31-png.png'
+        )
+        with open(first_image_path, 'rb') as first_image_file:
+            payload = {'image': first_image_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.image)
+
+        # Store the path of the first uploaded image
+        first_uploaded_image_path = self.user.image.path
+        self.assertTrue(os.path.exists(first_uploaded_image_path))
+
+        # Upload second image (replace the first one)
+        second_image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '45-png.png'
+        )
+        with open(second_image_path, 'rb') as second_image_file:
+            payload = {'image': second_image_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.image)
+
+        # Verify the old image file was deleted from filesystem
+        self.assertFalse(os.path.exists(first_uploaded_image_path))
+
+        # Verify the new image file exists
+        self.assertTrue(os.path.exists(self.user.image.path))
+        self.assertNotEqual(self.user.image.path, first_uploaded_image_path)
 
 
 class AdminUserApiTests(TestCase):
@@ -468,6 +612,30 @@ class AdminUserApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(User.objects.filter(id=user.id).exists())
+
+    def test_delete_user_with_image_success(self):
+        """Test deleting a user with an image for admin."""
+        user = User.objects.create_user(
+            email='test2@example.com',
+            password='password123',
+            username='testuser2'
+        )
+        # Use an existing image file
+        image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '45-png.png'
+        )
+        with open(image_path, 'rb') as image_file:
+            user.image.save('45-png.png', image_file, save=True)
+
+        self.assertTrue(os.path.exists(user.image.path))
+        image_path_to_check = user.image.path
+
+        url = reverse('user:user-detail', args=[user.id])
+        res = self.client.delete(url)
+
+        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(User.objects.filter(id=user.id).exists())
+        self.assertFalse(os.path.exists(image_path_to_check))
 
     def test_update_user_success(self):
         """Test updating a user for admin."""

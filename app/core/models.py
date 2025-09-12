@@ -40,6 +40,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
+    image = models.ImageField(upload_to='uploads/user/', null=True, blank=True)
 
     objects = UserManager()
 
@@ -48,3 +49,14 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         ordering = ['id']
+
+    def delete(self, *args, **kwargs):
+        """
+        Override the delete method to ensure the associated image
+        file is deleted when a user is deleted.
+        """
+        if self.image:
+            # Ensure the image file exists before trying to delete it
+            if self.image.storage.exists(self.image.name):
+                self.image.storage.delete(self.image.name)
+        super().delete(*args, **kwargs)
