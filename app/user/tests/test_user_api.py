@@ -372,14 +372,14 @@ class PrivateUserApiTests(TestCase):
 
     def test_image_url_is_absolute(self):
         """Test that the image URL in the response is an absolute URL."""
-        from django.core.files.uploadedfile import SimpleUploadedFile
-        image = SimpleUploadedFile(
-            "test.png", b"file_content", content_type="image/png"
+        image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '29-png.png'
         )
-        payload = {'image': image}
-        res = self.client.patch(
-            ME_URL, payload, format='multipart'
-        )
+        with open(image_path, 'rb') as image_file:
+            payload = {'image': image_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertIn('image', res.data)
@@ -402,14 +402,14 @@ class PrivateUserApiTests(TestCase):
 
     def test_clear_user_image_success(self):
         """Test clearing the user's profile image."""
-        from django.core.files.uploadedfile import SimpleUploadedFile
-        image = SimpleUploadedFile(
-            "test.png", b"file_content", content_type="image/png"
+        image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '31-png.png'
         )
-        payload = {'image': image}
-        res = self.client.patch(
-            ME_URL, payload, format='multipart'
-        )
+        with open(image_path, 'rb') as image_file:
+            payload = {'image': image_file}
+            res = self.client.patch(
+                ME_URL, payload, format='multipart'
+            )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
         self.assertTrue(self.user.image)
@@ -574,13 +574,12 @@ class AdminUserApiTests(TestCase):
             password='password123',
             username='testuser2'
         )
-        # Correctly create a dummy file for the test
-        from django.core.files.uploadedfile import SimpleUploadedFile
-        image = SimpleUploadedFile(
-            "test.png", b"file_content", content_type="image/png"
+        # Use an existing image file
+        image_path = os.path.join(
+            settings.MEDIA_ROOT, 'uploads', 'user', '45-png.png'
         )
-        user.image = image
-        user.save()
+        with open(image_path, 'rb') as image_file:
+            user.image.save('45-png.png', image_file, save=True)
 
         self.assertTrue(os.path.exists(user.image.path))
         image_path_to_check = user.image.path
