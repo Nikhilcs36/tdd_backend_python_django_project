@@ -7,6 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from django.conf import settings
 import os
+import tempfile
 
 
 CREATE_USER_URL = reverse('user:create')
@@ -352,10 +353,10 @@ class PrivateUserApiTests(TestCase):
 
     def test_upload_image_invalid_file_type_fail(self):
         """Test uploading an invalid file type for the user profile."""
-        with open('test.txt', 'w') as f:
-            f.write('not an image')
-        with open('test.txt', 'rb') as invalid_file:
-            payload = {'image': invalid_file}
+        with tempfile.NamedTemporaryFile(suffix='.txt') as temp_file:
+            temp_file.write(b'not an image')
+            temp_file.seek(0)
+            payload = {'image': temp_file}
             res = self.client.patch(
                 ME_URL, payload, format='multipart'
             )
@@ -368,7 +369,6 @@ class PrivateUserApiTests(TestCase):
         )
         self.user.refresh_from_db()
         self.assertFalse(self.user.image)
-        os.remove('test.txt')
 
     def test_image_url_is_absolute(self):
         """Test that the image URL in the response is an absolute URL."""
