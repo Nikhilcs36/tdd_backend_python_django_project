@@ -40,7 +40,11 @@ RUN python -m venv /py && \
     apk del .tmp-build-deps && \
     \
     # Add a non-root user for security
-    adduser --disabled-password --no-create-home django-user
+    adduser --disabled-password --no-create-home django-user && \
+    \
+    # Create media directory and change ownership
+    RUN mkdir -p /app/media && \
+        chown -R django-user:django-user /app/media
 
 # Set default Python path to virtual environment
 ENV PATH="/py/bin:$PATH"
