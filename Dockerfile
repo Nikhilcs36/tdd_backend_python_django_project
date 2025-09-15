@@ -46,8 +46,16 @@ RUN python -m venv /py && \
     mkdir -p /app/media && \
     chown -R django-user:django-user /app/media
 
+# Copy entrypoint script and make it executable
+COPY ./docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
 # Set default Python path to virtual environment
 ENV PATH="/py/bin:$PATH"
 
 # Use non-root user to run the app
 USER django-user
+
+# Use entrypoint script to ensure proper directory setup
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["sh", "-c", "python manage.py wait_for_db && python manage.py runserver 0.0.0.0:8000"]
