@@ -5,6 +5,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from .validators import validate_username, validate_email_for_signup, validate_password
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -23,21 +24,49 @@ class UserSerializer(serializers.ModelSerializer):
         model = get_user_model()
         fields = ('id', 'username', 'email', 'password',
                   'passwordRepeat', 'image')
-        extra_kwargs = {'password': {'write_only': True, 'min_length': 5}}
+        extra_kwargs = {
+            'password': {'write_only': True, 'validators': [validate_password]},
+            'username': {
+                'validators': [validate_username],
+                'error_messages': {
+                    'blank': 'Username is required.',
+                }
+            },
+            'email': {
+                'error_messages': {
+                    'invalid': 'Enter a valid email (e.g., user@example.com).',
+                    'unique': 'Email is already in use.',
+                }
+            },
+        }
 
     def validate(self, attrs):
         """
         Validate that the password and passwordRepeat fields match.
         """
-        if 'password' in attrs and 'passwordRepeat' in attrs:
-            if attrs['password'] != attrs['passwordRepeat']:
+        password = attrs.get('password')
+        password_repeat = attrs.get('passwordRepeat')
+
+        # On creation, both password and passwordRepeat are required
+        if not self.instance:
+            if not password_repeat:
                 raise serializers.ValidationError(
-                    {"password": "Password fields didn't match."}
+                    {"passwordRepeat": "Confirm your password."}
                 )
-        elif 'password' in attrs and 'passwordRepeat' not in attrs:
-            raise serializers.ValidationError(
-                {"passwordRepeat": "This field is required."}
-            )
+            if password != password_repeat:
+                raise serializers.ValidationError(
+                    {"passwordRepeat": "Passwords don't match."}
+                )
+        # On update, if password is provided, passwordRepeat must also be provided
+        elif password:
+            if not password_repeat:
+                raise serializers.ValidationError(
+                    {"passwordRepeat": "Confirm your password."}
+                )
+            if password != password_repeat:
+                raise serializers.ValidationError(
+                    {"passwordRepeat": "Passwords don't match."}
+                )
         return attrs
 
     def create(self, validated_data):
@@ -47,10 +76,15 @@ class UserSerializer(serializers.ModelSerializer):
         return get_user_model().objects.create_user(**validated_data)
 
     def __init__(self, *args, **kwargs):
-        """Dynamically set email to read-only for updates."""
+        """
+        Dynamically set email to read-only for updates and apply email
+        validator only for create operations.
+        """
         super().__init__(*args, **kwargs)
         if self.instance:
             self.fields['email'].read_only = True
+        else:
+            self.fields['email'].validators.append(validate_email_for_signup)
 
     def update(self, instance, validated_data):
         """Update a user, setting the password correctly and return it."""
