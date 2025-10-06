@@ -28,8 +28,8 @@ class PublicUserApiTests(TestCase):
         payload = {
             'username': 'testuser',
             'email': 'test@example.com',
-            'password': 'password123',
-            'passwordRepeat': 'password123',
+            'password': 'Password123',
+            'passwordRepeat': 'Password123',
 
         }
         res = self.client.post(CREATE_USER_URL, payload)
@@ -46,20 +46,22 @@ class PublicUserApiTests(TestCase):
         payload = {
             'username': 'testuser',
             'email': 'test@example.com',
-            'password': 'password123',
-            'passwordRepeat': 'password123',
+            'password': 'Password123',
+            'passwordRepeat': 'Password123',
 
         }
         User.objects.create_user(
             username='testuser',
             email='test@example.com',
-            password='password123',
+            password='Password123',
 
         )
 
         res = self.client.post(CREATE_USER_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', res.data)
+        self.assertEqual(res.data['email'][0], 'Email is already in use.')
 
     def test_password_too_short_error(self):
         """Test an error is returned if the password is too short."""
@@ -84,8 +86,8 @@ class PublicUserApiTests(TestCase):
         payload = {
             'username': 'testuser2',
             'email': 'test2@example.com',
-            'password': 'password123',
-            'passwordRepeat': 'password123',
+            'password': 'Password123',
+            'passwordRepeat': 'Password123',
 
         }
         res = self.client.post(CREATE_USER_URL, payload)
@@ -102,33 +104,136 @@ class PublicUserApiTests(TestCase):
         payload = {
             'username': 'testuser3',
             'email': 'test3@example.com',
-            'password': 'password123',
-            'passwordRepeat': 'password124',
+            'password': 'Password123',
+            'passwordRepeat': 'Password124',
 
         }
         res = self.client.post(CREATE_USER_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('passwordRepeat', res.data)
+        self.assertEqual(res.data['passwordRepeat']
+                         [0], 'Passwords don\'t match.')
+
+    def test_create_user_with_null_password_repeat_error(self):
+        """Test error returned if passwordRepeat is null."""
+        payload = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'Password123',
+            'passwordRepeat': '',
+        }
+        res = self.client.post(CREATE_USER_URL, payload)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('passwordRepeat', res.data)
+        self.assertEqual(res.data['passwordRepeat']
+                         [0], 'Confirm your password.')
 
     def test_create_user_with_blank_username_error(self):
         """Test error returned if username is blank."""
         payload = {
             'username': '',
             'email': 'test4@example.com',
-            'password': 'password123',
-            'passwordRepeat': 'password123',
+            'password': 'Password123',
+            'passwordRepeat': 'Password123',
 
         }
         res = self.client.post(CREATE_USER_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('username', res.data)
+        self.assertEqual(res.data['username'][0], 'Username is required.')
+
+    def test_create_user_with_invalid_username_error(self):
+        """Test error returned if username is invalid."""
+        # Test for username too short
+        payload_short = {
+            'username': 'usr',
+            'email': 'test5@example.com',
+            'password': 'Password123',
+            'passwordRepeat': 'Password123',
+        }
+        res_short = self.client.post(CREATE_USER_URL, payload_short)
+        self.assertEqual(res_short.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('username', res_short.data)
+        self.assertEqual(
+            res_short.data['username'][0], 'Must have min 4 and max 32 characters')
+
+        # Test for username too long
+        payload_long = {
+            'username': 'a' * 33,
+            'email': 'test6@example.com',
+            'password': 'Password123',
+            'passwordRepeat': 'Password123',
+        }
+        res_long = self.client.post(CREATE_USER_URL, payload_long)
+        self.assertEqual(res_long.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('username', res_long.data)
+        self.assertEqual(res_long.data['username'][0],
+                         'Must have min 4 and max 32 characters')
+
+    def test_create_user_with_invalid_email_error(self):
+        """Test error returned if email is invalid."""
+        payload = {
+            'username': 'testuser7',
+            'email': 'invalid-email',
+            'password': 'Password123',
+            'passwordRepeat': 'Password123',
+        }
+        res = self.client.post(CREATE_USER_URL, payload)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', res.data)
+        self.assertEqual(
+            res.data['email'][0], 'Enter a valid email (e.g., user@example.com).')
+
+    def test_create_user_with_invalid_password_error(self):
+        """Test error returned if password does not meet complexity requirements."""
+        # Test for password without uppercase letter
+        payload_no_upper = {
+            'username': 'testuser8',
+            'email': 'test8@example.com',
+            'password': 'password123',
+            'passwordRepeat': 'password123',
+        }
+        res_no_upper = self.client.post(CREATE_USER_URL, payload_no_upper)
+        self.assertEqual(res_no_upper.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('password', res_no_upper.data)
+        self.assertEqual(
+            res_no_upper.data['password'][0], 'Password must have at least 1 uppercase, 1 lowercase letter and 1 number')
+
+        # Test for password without lowercase letter
+        payload_no_lower = {
+            'username': 'testuser9',
+            'email': 'test9@example.com',
+            'password': 'PASSWORD123',
+            'passwordRepeat': 'PASSWORD123',
+        }
+        res_no_lower = self.client.post(CREATE_USER_URL, payload_no_lower)
+        self.assertEqual(res_no_lower.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('password', res_no_lower.data)
+        self.assertEqual(
+            res_no_lower.data['password'][0], 'Password must have at least 1 uppercase, 1 lowercase letter and 1 number')
+
+        # Test for password without number
+        payload_no_number = {
+            'username': 'testuser10',
+            'email': 'test10@example.com',
+            'password': 'Password',
+            'passwordRepeat': 'Password',
+        }
+        res_no_number = self.client.post(CREATE_USER_URL, payload_no_number)
+        self.assertEqual(res_no_number.status_code,
+                         status.HTTP_400_BAD_REQUEST)
+        self.assertIn('password', res_no_number.data)
+        self.assertEqual(
+            res_no_number.data['password'][0], 'Password must have at least 1 uppercase, 1 lowercase letter and 1 number')
 
     def test_create_token_for_user(self):
         """Test that a token is created for the user."""
         user_details = {
             'username': 'testuser',
             'email': 'test@example.com',
-            'password': 'password123',
+            'password': 'Password123',
         }
         User.objects.create_user(**user_details)
 
@@ -151,7 +256,7 @@ class PublicUserApiTests(TestCase):
         user_details = {
             'username': 'testuser',
             'email': 'test@example.com',
-            'password': 'password123',
+            'password': 'Password123',
         }
         User.objects.create_user(**user_details)
 
@@ -181,7 +286,7 @@ class PrivateUserApiTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             email='test@example.com',
-            password='password123',
+            password='Password123',
             username='testuser'
         )
         self.client = APIClient()
@@ -216,7 +321,7 @@ class PrivateUserApiTests(TestCase):
         user_details = {
             'username': 'testuser2',
             'email': 'test2@example.com',
-            'password': 'password123',
+            'password': 'Password123',
         }
         User.objects.create_user(**user_details)
 
@@ -245,7 +350,7 @@ class PrivateUserApiTests(TestCase):
         user_details = {
             'username': 'testuser3',
             'email': 'test3@example.com',
-            'password': 'password123',
+            'password': 'Password123',
         }
         user = User.objects.create_user(**user_details)
 
@@ -275,7 +380,7 @@ class PrivateUserApiTests(TestCase):
         original_email = 'test_partial_update@example.com'
         user = User.objects.create_user(
             email=original_email,
-            password='password123',
+            password='Password123',
             username='testuser_partial_update'
         )
         self.client.force_authenticate(user=user)
@@ -293,7 +398,7 @@ class PrivateUserApiTests(TestCase):
         original_email = 'test_email_not_updated@example.com'
         user = User.objects.create_user(
             email=original_email,
-            password='password123',
+            password='Password123',
             username='testuser_email_not_updated'
         )
         self.client.force_authenticate(user=user)
@@ -314,7 +419,7 @@ class PrivateUserApiTests(TestCase):
         """Test retrieving a specific user's details for non-admin fails."""
         user = User.objects.create_user(
             email='test2@example.com',
-            password='password123',
+            password='Password123',
             username='testuser2'
         )
         url = reverse('user:user-detail', args=[user.id])
@@ -326,7 +431,7 @@ class PrivateUserApiTests(TestCase):
         """Test updating a user for non-admin fails."""
         user = User.objects.create_user(
             email='test2@example.com',
-            password='password123',
+            password='Password123',
             username='testuser2'
         )
         url = reverse('user:user-detail', args=[user.id])
@@ -475,7 +580,7 @@ class AdminUserApiTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_superuser(
             email='admin@example.com',
-            password='password123',
+            password='Password123',
             username='adminuser'
         )
         self.client = APIClient()
@@ -485,12 +590,12 @@ class AdminUserApiTests(TestCase):
         """Test retrieving a list of users for admin."""
         User.objects.create_user(
             email='test2@example.com',
-            password='password123',
+            password='Password123',
             username='testuser2'
         )
         User.objects.create_user(
             email='test3@example.com',
-            password='password123',
+            password='Password123',
             username='testuser3'
         )
 
@@ -514,7 +619,7 @@ class AdminUserApiTests(TestCase):
         for i in range(5):
             User.objects.create_user(
                 email=f'test{i}@example.com',
-                password='password123',
+                password='Password123',
                 username=f'testuser{i}'
             )
 
@@ -532,7 +637,7 @@ class AdminUserApiTests(TestCase):
         for i in range(5):
             User.objects.create_user(
                 email=f'test{i}@example.com',
-                password='password123',
+                password='Password123',
                 username=f'testuser{i}'
             )
 
@@ -550,7 +655,7 @@ class AdminUserApiTests(TestCase):
         for i in range(5):
             User.objects.create_user(
                 email=f'test{i}@example.com',
-                password='password123',
+                password='Password123',
                 username=f'testuser{i}'
             )
 
@@ -574,7 +679,7 @@ class AdminUserApiTests(TestCase):
         for i in range(10):
             User.objects.create_user(
                 email=f'test{i}@example.com',
-                password='password123',
+                password='Password123',
                 username=f'testuser{i}'
             )
 
@@ -591,7 +696,7 @@ class AdminUserApiTests(TestCase):
         """Test retrieving a specific user's details for admin."""
         user = User.objects.create_user(
             email='test2@example.com',
-            password='password123',
+            password='Password123',
             username='testuser2'
         )
         url = reverse('user:user-detail', args=[user.id])
@@ -604,7 +709,7 @@ class AdminUserApiTests(TestCase):
         """Test deleting a user for admin."""
         user = User.objects.create_user(
             email='test2@example.com',
-            password='password123',
+            password='Password123',
             username='testuser2'
         )
         url = reverse('user:user-detail', args=[user.id])
@@ -617,7 +722,7 @@ class AdminUserApiTests(TestCase):
         """Test deleting a user with an image for admin."""
         user = User.objects.create_user(
             email='test2@example.com',
-            password='password123',
+            password='Password123',
             username='testuser2'
         )
         # Use an existing image file
@@ -641,7 +746,7 @@ class AdminUserApiTests(TestCase):
         """Test updating a user for admin."""
         user = User.objects.create_user(
             email='test2@example.com',
-            password='password123',
+            password='Password123',
             username='testuser2'
         )
         url = reverse('user:user-detail', args=[user.id])
@@ -657,7 +762,7 @@ class AdminUserApiTests(TestCase):
         password fields."""
         user = User.objects.create_user(
             email='test_partial@example.com',
-            password='password123',
+            password='Password123',
             username='testuser_partial'
         )
         url = reverse('user:user-detail', args=[user.id])
@@ -671,29 +776,29 @@ class AdminUserApiTests(TestCase):
         user.refresh_from_db()
         self.assertEqual(user.username, 'updated_username')
         # Verify password remains unchanged
-        self.assertTrue(user.check_password('password123'))
+        self.assertTrue(user.check_password('Password123'))
 
     def test_partial_update_user_with_password_success(self):
         """Test partial update of user details with password
         fields provided."""
         user = User.objects.create_user(
             email='test_password@example.com',
-            password='oldpassword',
+            password='Oldpassword123',
             username='testuser_password'
         )
         url = reverse('user:user-detail', args=[user.id])
 
         # Update password with both password and passwordRepeat fields
         payload = {
-            'password': 'newpassword123',
-            'passwordRepeat': 'newpassword123'
+            'password': 'Newpassword123',
+            'passwordRepeat': 'Newpassword123'
         }
         res = self.client.patch(url, payload)
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         user.refresh_from_db()
         # Verify password was updated
-        self.assertTrue(user.check_password('newpassword123'))
+        self.assertTrue(user.check_password('Newpassword123'))
 
 
 class StaffUserApiTests(TestCase):
@@ -702,7 +807,7 @@ class StaffUserApiTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             email='staff@example.com',
-            password='password123',
+            password='Password123',
             username='staffuser',
             is_staff=True
         )
@@ -718,7 +823,7 @@ class StaffUserApiTests(TestCase):
         """Test retrieving a specific user's details for staff fails."""
         user = User.objects.create_user(
             email='test2@example.com',
-            password='password123',
+            password='Password123',
             username='testuser2'
         )
         url = reverse('user:user-detail', args=[user.id])
@@ -730,7 +835,7 @@ class StaffUserApiTests(TestCase):
         """Test deleting a user for staff fails."""
         user = User.objects.create_user(
             email='test2@example.com',
-            password='password123',
+            password='Password123',
             username='testuser2'
         )
         url = reverse('user:user-detail', args=[user.id])
@@ -742,7 +847,7 @@ class StaffUserApiTests(TestCase):
         """Test updating a user for staff fails."""
         user = User.objects.create_user(
             email='test2@example.com',
-            password='password123',
+            password='Password123',
             username='testuser2'
         )
         url = reverse('user:user-detail', args=[user.id])
@@ -772,7 +877,7 @@ class StaffUserApiTests(TestCase):
         # Login to get refresh token
         login_res = self.client.post(TOKEN_URL, {
             'email': self.user.email,
-            'password': 'password123',
+            'password': 'Password123',
         })
         refresh_token = login_res.data['refresh']
 
