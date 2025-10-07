@@ -36,7 +36,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     """Custom user model that supports using username and email"""
     username = models.CharField(max_length=255, unique=True)
     email = models.EmailField(max_length=255, unique=True, error_messages={
-        'unique': 'Email is already in use.'
+        'unique': 'E-mail in use'
     })
     name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
