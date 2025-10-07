@@ -157,7 +157,9 @@ class PublicUserApiTests(TestCase):
         self.assertEqual(res_short.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('username', res_short.data)
         self.assertEqual(
-            res_short.data['username'][0], 'Must have min 4 and max 32 characters')
+            res_short.data['username'][0],
+            'Must have min 4 and max 32 characters'
+        )
 
         # Test for username too long
         payload_long = {
@@ -184,10 +186,13 @@ class PublicUserApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('email', res.data)
         self.assertEqual(
-            res.data['email'][0], 'Enter a valid email (e.g., user@example.com).')
+            res.data['email'][0],
+            'Enter a valid email (e.g., user@example.com).'
+        )
 
     def test_create_user_with_invalid_password_error(self):
-        """Test error returned if password does not meet complexity requirements."""
+        """Test error returned if password does not meet complexity
+        requirements."""
         # Test for password without uppercase letter
         payload_no_upper = {
             'username': 'testuser8',
@@ -199,7 +204,10 @@ class PublicUserApiTests(TestCase):
         self.assertEqual(res_no_upper.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('password', res_no_upper.data)
         self.assertEqual(
-            res_no_upper.data['password'][0], 'Password must have at least 1 uppercase, 1 lowercase letter and 1 number')
+            res_no_upper.data['password'][0],
+            ('Password must have at least 1 uppercase, '
+             '1 lowercase letter and 1 number')
+        )
 
         # Test for password without lowercase letter
         payload_no_lower = {
@@ -212,7 +220,10 @@ class PublicUserApiTests(TestCase):
         self.assertEqual(res_no_lower.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('password', res_no_lower.data)
         self.assertEqual(
-            res_no_lower.data['password'][0], 'Password must have at least 1 uppercase, 1 lowercase letter and 1 number')
+            res_no_lower.data['password'][0],
+            ('Password must have at least 1 uppercase, '
+             '1 lowercase letter and 1 number')
+        )
 
         # Test for password without number
         payload_no_number = {
@@ -226,7 +237,10 @@ class PublicUserApiTests(TestCase):
                          status.HTTP_400_BAD_REQUEST)
         self.assertIn('password', res_no_number.data)
         self.assertEqual(
-            res_no_number.data['password'][0], 'Password must have at least 1 uppercase, 1 lowercase letter and 1 number')
+            res_no_number.data['password'][0],
+            ('Password must have at least 1 uppercase, '
+             '1 lowercase letter and 1 number')
+        )
 
     def test_create_token_for_user(self):
         """Test that a token is created for the user."""

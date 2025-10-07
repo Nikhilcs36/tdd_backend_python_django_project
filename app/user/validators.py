@@ -21,7 +21,8 @@ def validate_username(value):
 
 def validate_email_for_signup(value):
     """
-    Validates that the email is not null, is a valid format, and is not already in use.
+    Validates that the email is not null, is a valid format,
+    and is not already in use.
     """
     if not value:
         raise serializers.ValidationError("Email is required.")
@@ -38,14 +39,19 @@ def validate_email_for_signup(value):
 def validate_password(value):
     """
     Validates that the password is not null, is at least 6 characters long,
-    and contains at least one uppercase letter, one lowercase letter, and one number.
+    and contains at least one uppercase letter, one lowercase letter,
+    and one number.
     """
     if not value:
         raise serializers.ValidationError("Password cannot be null")
     if len(value) < 6:
         raise serializers.ValidationError(
             "Password must have at least 6 characters")
-    if not re.search(r"[a-z]", value) or not re.search(r"[A-Z]", value) or not re.search(r"\d", value):
+    if not re.search(r"[a-z]", value) or \
+       not re.search(r"[A-Z]", value) or \
+       not re.search(r"\d", value):
         raise serializers.ValidationError(
-            "Password must have at least 1 uppercase, 1 lowercase letter and 1 number")
+            "Password must have at least 1 uppercase, "
+            "1 lowercase letter and 1 number"
+        )
     return value
