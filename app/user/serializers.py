@@ -33,7 +33,10 @@ class UserSerializer(serializers.ModelSerializer):
                   'passwordRepeat', 'image')
         extra_kwargs = {
             'password': {
-                'write_only': True, 'validators': [validate_password]
+                'write_only': True, 'validators': [validate_password],
+                'error_messages': {
+                    'blank': 'Password cannot be null',
+                }
             },
             'username': {
                 'validators': [validate_username],

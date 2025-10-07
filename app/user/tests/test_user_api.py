@@ -324,6 +324,62 @@ class PublicUserApiTests(TestCase):
             CustomTokenObtainPairSerializer
         )
 
+    def test_create_user_with_null_password_error(self):
+        """Test error returned if password is null."""
+        payload = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': '',
+            'passwordRepeat': 'Password123',
+        }
+        res = self.client.post(CREATE_USER_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('password', res.data)
+        # Should show custom error message "Password cannot be null"
+        # instead of Django default "This field may not be blank."
+        self.assertEqual(res.data['password'][0], 'Password cannot be null')
+
+    def test_create_user_with_short_password_error(self):
+        """Test error returned if password is too short."""
+        payload = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'pass',
+            'passwordRepeat': 'pass',
+        }
+        res = self.client.post(CREATE_USER_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('password', res.data)
+        # Should show custom error message
+        # "Password must have at least 6 characters"
+        self.assertEqual(
+            res.data['password'][0],
+            'Password must have at least 6 characters'
+        )
+
+    def test_create_user_with_invalid_password_complexity_error(self):
+        """Test error returned if password lacks complexity requirements."""
+        payload = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'password',  # No uppercase or number
+            'passwordRepeat': 'password',
+        }
+        res = self.client.post(CREATE_USER_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('password', res.data)
+        # Should show custom error message
+        # "Password must have at least 1 uppercase,"
+        # "1 lowercase letter and 1 number"
+        self.assertEqual(
+            res.data['password'][0],
+            'Password must have at least 1 uppercase, '
+            '1 lowercase letter and 1 number'
+        )
+
 
 class PrivateUserApiTests(TestCase):
     """Test the private features of the user API."""
