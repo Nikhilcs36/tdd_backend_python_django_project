@@ -5,7 +5,11 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-from .validators import validate_username, validate_email_for_signup, validate_password
+from .validators import (
+    validate_username,
+    validate_email_for_signup,
+    validate_password
+)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -16,7 +20,10 @@ class UserSerializer(serializers.ModelSerializer):
         style={'input_type': 'password'}
     )
     image = serializers.FileField(
-        max_length=100, allow_empty_file=True, use_url=True, required=False,
+        max_length=100,
+        allow_empty_file=True,
+        use_url=True,
+        required=False,
         allow_null=True
     )
 
@@ -25,7 +32,9 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'email', 'password',
                   'passwordRepeat', 'image')
         extra_kwargs = {
-            'password': {'write_only': True, 'validators': [validate_password]},
+            'password': {
+                'write_only': True, 'validators': [validate_password]
+            },
             'username': {
                 'validators': [validate_username],
                 'error_messages': {
@@ -34,7 +43,8 @@ class UserSerializer(serializers.ModelSerializer):
             },
             'email': {
                 'error_messages': {
-                    'invalid': 'Enter a valid email (e.g., user@example.com).',
+                    'invalid': 'Enter a valid email '
+                               '(e.g., user@example.com).',
                     'unique': 'Email is already in use.',
                 }
             },
@@ -54,19 +64,18 @@ class UserSerializer(serializers.ModelSerializer):
                     {"passwordRepeat": "Confirm your password."}
                 )
             if password != password_repeat:
-                raise serializers.ValidationError(
-                    {"passwordRepeat": "Passwords don't match."}
-                )
-        # On update, if password is provided, passwordRepeat must also be provided
+                msg = {"passwordRepeat": "Passwords don't match."}
+                raise serializers.ValidationError(msg)
+        # On update, if password is provided, passwordRepeat must also be
+        # provided
         elif password:
             if not password_repeat:
                 raise serializers.ValidationError(
                     {"passwordRepeat": "Confirm your password."}
                 )
             if password != password_repeat:
-                raise serializers.ValidationError(
-                    {"passwordRepeat": "Passwords don't match."}
-                )
+                msg = {"passwordRepeat": "Passwords don't match."}
+                raise serializers.ValidationError(msg)
         return attrs
 
     def create(self, validated_data):
