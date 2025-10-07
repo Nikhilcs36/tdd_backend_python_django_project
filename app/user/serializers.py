@@ -43,6 +43,7 @@ class UserSerializer(serializers.ModelSerializer):
             },
             'email': {
                 'error_messages': {
+                    'blank': 'E-mail cannot be null',
                     'invalid': 'E-mail is not valid',
                     'unique': 'E-mail in use',
                 }
@@ -92,7 +93,10 @@ class UserSerializer(serializers.ModelSerializer):
         if self.instance:
             self.fields['email'].read_only = True
         else:
-            self.fields['email'].validators.append(validate_email_for_signup)
+            # Remove Django's built-in email validation to avoid duplicate
+            # errors since validate_email_for_signup already handles all
+            # email validation
+            self.fields['email'].validators = [validate_email_for_signup]
 
     def update(self, instance, validated_data):
         """Update a user, setting the password correctly and return it."""

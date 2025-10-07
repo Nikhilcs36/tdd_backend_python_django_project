@@ -144,6 +144,19 @@ class PublicUserApiTests(TestCase):
         self.assertIn('username', res.data)
         self.assertEqual(res.data['username'][0], 'Username cannot be null')
 
+    def test_create_user_with_blank_email_error(self):
+        """Test error returned if email is blank."""
+        payload = {
+            'username': 'testuser',
+            'email': '',
+            'password': 'Password123',
+            'passwordRepeat': 'Password123',
+        }
+        res = self.client.post(CREATE_USER_URL, payload)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', res.data)
+        self.assertEqual(res.data['email'][0], 'E-mail cannot be null')
+
     def test_create_user_with_invalid_username_error(self):
         """Test error returned if username is invalid."""
         # Test for username too short
@@ -189,6 +202,24 @@ class PublicUserApiTests(TestCase):
             res.data['email'][0],
             'E-mail is not valid'
         )
+
+    def test_invalid_email_no_duplicate_error_messages(self):
+        """Test invalid email validation doesn't show duplicate errors."""
+        payload = {
+            'username': 'testuser',
+            'email': 'invalid-email',  # Invalid email format
+            'password': 'Password123',
+            'passwordRepeat': 'Password123',
+        }
+        res = self.client.post(CREATE_USER_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', res.data)
+
+        # Check that the error message appears only once, not duplicated
+        email_errors = res.data['email']
+        self.assertEqual(len(email_errors), 1)
+        self.assertEqual(email_errors[0], 'E-mail is not valid')
 
     def test_create_user_with_invalid_password_error(self):
         """Test error returned if password does not meet complexity
