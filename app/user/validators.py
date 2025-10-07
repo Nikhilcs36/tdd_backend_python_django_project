@@ -7,13 +7,16 @@ from rest_framework import serializers
 
 def validate_username(value):
     """
-    Validates that the username is not null and is between 4 and 32 characters.
+    Validates that the username is not null, is between 4 and 32 characters,
+    and is not already in use.
     """
     if not value:
         raise serializers.ValidationError("Username cannot be null")
     if len(value) < 4 or len(value) > 32:
         raise serializers.ValidationError(
             "Must have min 4 and max 32 characters")
+    if get_user_model().objects.filter(username=value).exists():
+        raise serializers.ValidationError("Username already exists")
     return value
 
 # Custom validator for email during signup
