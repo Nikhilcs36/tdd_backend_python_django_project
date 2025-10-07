@@ -10,7 +10,7 @@ def validate_username(value):
     Validates that the username is not null and is between 4 and 32 characters.
     """
     if not value:
-        raise serializers.ValidationError("Username is required.")
+        raise serializers.ValidationError("Username cannot be null")
     if len(value) < 4 or len(value) > 32:
         raise serializers.ValidationError(
             "Must have min 4 and max 32 characters")
@@ -25,12 +25,12 @@ def validate_email_for_signup(value):
     and is not already in use.
     """
     if not value:
-        raise serializers.ValidationError("Email is required.")
+        raise serializers.ValidationError("E-mail cannot be null")
     if not re.match(r"[^@]+@[^@]+\.[^@]+", value):
         raise serializers.ValidationError(
-            "Enter a valid email (e.g., user@example.com).")
+            "E-mail is not valid")
     if get_user_model().objects.filter(email=value).exists():
-        raise serializers.ValidationError("Email is already in use.")
+        raise serializers.ValidationError("E-mail in use")
     return value
 
 # Custom validator for password

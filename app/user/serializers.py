@@ -38,14 +38,13 @@ class UserSerializer(serializers.ModelSerializer):
             'username': {
                 'validators': [validate_username],
                 'error_messages': {
-                    'blank': 'Username is required.',
+                    'blank': 'Username cannot be null',
                 }
             },
             'email': {
                 'error_messages': {
-                    'invalid': 'Enter a valid email '
-                               '(e.g., user@example.com).',
-                    'unique': 'Email is already in use.',
+                    'invalid': 'E-mail is not valid',
+                    'unique': 'E-mail in use',
                 }
             },
         }
@@ -61,20 +60,20 @@ class UserSerializer(serializers.ModelSerializer):
         if not self.instance:
             if not password_repeat:
                 raise serializers.ValidationError(
-                    {"passwordRepeat": "Confirm your password."}
+                    {"passwordRepeat": "password_repeat_null"}
                 )
             if password != password_repeat:
-                msg = {"passwordRepeat": "Passwords don't match."}
+                msg = {"passwordRepeat": "password_mismatch"}
                 raise serializers.ValidationError(msg)
         # On update, if password is provided, passwordRepeat must also be
         # provided
         elif password:
             if not password_repeat:
                 raise serializers.ValidationError(
-                    {"passwordRepeat": "Confirm your password."}
+                    {"passwordRepeat": "password_repeat_null"}
                 )
             if password != password_repeat:
-                msg = {"passwordRepeat": "Passwords don't match."}
+                msg = {"passwordRepeat": "password_mismatch"}
                 raise serializers.ValidationError(msg)
         return attrs
 

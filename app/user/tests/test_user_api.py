@@ -61,7 +61,7 @@ class PublicUserApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('email', res.data)
-        self.assertEqual(res.data['email'][0], 'Email is already in use.')
+        self.assertEqual(res.data['email'][0], 'E-mail in use')
 
     def test_password_too_short_error(self):
         """Test an error is returned if the password is too short."""
@@ -113,7 +113,7 @@ class PublicUserApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('passwordRepeat', res.data)
         self.assertEqual(res.data['passwordRepeat']
-                         [0], 'Passwords don\'t match.')
+                         [0], 'password_mismatch')
 
     def test_create_user_with_null_password_repeat_error(self):
         """Test error returned if passwordRepeat is null."""
@@ -127,7 +127,7 @@ class PublicUserApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('passwordRepeat', res.data)
         self.assertEqual(res.data['passwordRepeat']
-                         [0], 'Confirm your password.')
+                         [0], 'password_repeat_null')
 
     def test_create_user_with_blank_username_error(self):
         """Test error returned if username is blank."""
@@ -142,7 +142,7 @@ class PublicUserApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('username', res.data)
-        self.assertEqual(res.data['username'][0], 'Username is required.')
+        self.assertEqual(res.data['username'][0], 'Username cannot be null')
 
     def test_create_user_with_invalid_username_error(self):
         """Test error returned if username is invalid."""
@@ -184,10 +184,10 @@ class PublicUserApiTests(TestCase):
         }
         res = self.client.post(CREATE_USER_URL, payload)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('email', res.data)
+        self.assertIn('email', 'email' in res.data and res.data or {})
         self.assertEqual(
             res.data['email'][0],
-            'Enter a valid email (e.g., user@example.com).'
+            'E-mail is not valid'
         )
 
     def test_create_user_with_invalid_password_error(self):
