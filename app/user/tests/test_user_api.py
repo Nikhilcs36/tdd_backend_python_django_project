@@ -63,6 +63,26 @@ class PublicUserApiTests(TestCase):
         self.assertIn('email', res.data)
         self.assertEqual(res.data['email'][0], 'E-mail in use')
 
+    def test_user_with_username_exists_error(self):
+        """Test error returned if user with username exists."""
+        payload = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'Password123',
+            'passwordRepeat': 'Password123',
+        }
+        User.objects.create_user(
+            username='testuser',
+            email='test2@example.com',
+            password='Password123',
+        )
+
+        res = self.client.post(CREATE_USER_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('username', res.data)
+        self.assertEqual(res.data['username'][0], 'Username already exists')
+
     def test_password_too_short_error(self):
         """Test an error is returned if the password is too short."""
         payload = {

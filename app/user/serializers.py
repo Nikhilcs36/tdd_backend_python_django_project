@@ -43,6 +43,7 @@ class UserSerializer(serializers.ModelSerializer):
                 'validators': [validate_username],
                 'error_messages': {
                     'blank': 'Username cannot be null',
+                    'unique': 'Username already exists',
                 }
             },
             'email': {
