@@ -17,7 +17,8 @@ class UserSerializer(serializers.ModelSerializer):
     passwordRepeat = serializers.CharField(
         write_only=True,
         required=False,
-        style={'input_type': 'password'}
+        style={'input_type': 'password'},
+        error_messages={'blank': 'password_repeat_null'}
     )
     image = serializers.FileField(
         max_length=100,
