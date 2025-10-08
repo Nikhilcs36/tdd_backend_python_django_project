@@ -334,6 +334,46 @@ class PublicUserApiTests(TestCase):
         self.assertNotIn('access', res.data)
         self.assertNotIn('refresh', res.data)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['non_field_errors'][0], 'no_active_account')
+
+    def test_create_token_blank_email(self):
+        """Test that a token is not created with a blank email."""
+        payload = {
+            'email': '',
+            'password': 'Password123',
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertNotIn('access', res.data)
+        self.assertNotIn('refresh', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['email'][0], 'email_required')
+
+    def test_create_token_blank_password(self):
+        """Test that a token is not created with a blank password."""
+        payload = {
+            'email': 'test@example.com',
+            'password': '',
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertNotIn('access', res.data)
+        self.assertNotIn('refresh', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['password'][0], 'password_required')
+
+    def test_create_token_invalid_email(self):
+        """Test that a token is not created with an invalid email."""
+        payload = {
+            'email': 'invalid-email',
+            'password': 'Password123',
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertNotIn('access', res.data)
+        self.assertNotIn('refresh', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['email'][0], 'email_invalid')
 
     def test_token_obtains_pair_view_uses_custom_serializer(self):
         """Test that TokenObtainPairView is using the custom serializer."""

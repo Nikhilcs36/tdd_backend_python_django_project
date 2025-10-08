@@ -153,12 +153,24 @@ class UserSerializer(serializers.ModelSerializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Custom serializer for token obtain pair view."""
 
+    default_error_messages = {
+        'no_active_account': 'no_active_account'
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['email'] = serializers.EmailField()
+        self.fields['email'] = serializers.EmailField(
+            error_messages={
+                'blank': 'email_required',
+                'invalid': 'email_invalid',
+            }
+        )
         self.fields['password'] = serializers.CharField(
             style={'input_type': 'password'},
-            trim_whitespace=False
+            trim_whitespace=False,
+            error_messages={
+                'blank': 'password_required',
+            }
         )
         del self.fields['username']
 
@@ -174,9 +186,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         )
 
         if not user:
-            raise serializers.ValidationError(
-                'No active account found with the given credentials'
-            )
+            self.fail('no_active_account')
 
         refresh = self.get_token(user)
 
