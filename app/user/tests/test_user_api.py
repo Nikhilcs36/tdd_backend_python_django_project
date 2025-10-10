@@ -1025,7 +1025,7 @@ class StaffUserApiTests(TestCase):
         payload = {'refresh': str(refresh)}
         res = self.client.post(LOGOUT_URL, payload)
 
-        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
 
         is_blacklisted = BlacklistedToken.objects.filter(
             token__token=str(refresh)
@@ -1045,7 +1045,7 @@ class StaffUserApiTests(TestCase):
         # Logout with the obtained refresh token
         logout_res = self.client.post(LOGOUT_URL, {'refresh': refresh_token})
 
-        self.assertEqual(logout_res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(logout_res.status_code, status.HTTP_200_OK)
         self.assertTrue(
             BlacklistedToken.objects.filter(
                 token__token=refresh_token
@@ -1062,3 +1062,12 @@ class StaffUserApiTests(TestCase):
         """Test that logging out requires a refresh token."""
         res = self.client.post(LOGOUT_URL, {})
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_logout_success_message(self):
+        """Test that logging out returns a success message."""
+        refresh = RefreshToken.for_user(self.user)
+        payload = {'refresh': str(refresh)}
+        res = self.client.post(LOGOUT_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['message'], 'logout_Success')
