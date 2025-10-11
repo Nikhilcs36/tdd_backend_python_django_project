@@ -1,5 +1,6 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework_simplejwt.exceptions import TokenError
 from .serializers import (
     UserSerializer,
     CustomTokenObtainPairSerializer,
@@ -67,10 +68,16 @@ class LogoutView(generics.GenericAPIView):
 
     def post(self, request):
         """Blacklist the refresh token."""
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(
-            {'message': 'logout_Success'},
-            status=status.HTTP_200_OK
-        )
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(
+                {'message': 'logout_Success'},
+                status=status.HTTP_200_OK
+            )
+        except TokenError:
+            return Response(
+                {'detail': 'refresh_token_not_valid'},
+                status=status.HTTP_400_BAD_REQUEST
+            )

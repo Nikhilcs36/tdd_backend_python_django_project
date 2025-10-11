@@ -1071,3 +1071,15 @@ class StaffUserApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['message'], 'logout_Success')
+
+    def test_logout_blacklisted_token_error(self):
+        """Test error on logging out with a blacklisted token."""
+        refresh = RefreshToken.for_user(self.user)
+        payload = {'refresh': str(refresh)}
+        self.client.post(LOGOUT_URL, payload)  # First logout blacklists token
+
+        # Attempt to logout again with the same token
+        res = self.client.post(LOGOUT_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['detail'], 'refresh_token_not_valid')
