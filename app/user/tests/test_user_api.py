@@ -1062,6 +1062,7 @@ class StaffUserApiTests(TestCase):
         """Test that logging out requires a refresh token."""
         res = self.client.post(LOGOUT_URL, {})
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['refresh'][0], 'refresh_token_required')
 
     def test_logout_success_message(self):
         """Test that logging out returns a success message."""
