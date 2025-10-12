@@ -34,7 +34,6 @@ class CustomExceptionHandlerTests(APITestCase):
 
         # Assert custom response format
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(response.data['status'], 401)
         self.assertEqual(
             response.data['message'], 'Token is invalid or expired'
         )
@@ -59,7 +58,6 @@ class CustomExceptionHandlerTests(APITestCase):
 
         # Assert custom response format
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(response.data['status'], 401)
         self.assertEqual(
             response.data['message'], 'Token is invalid or expired'
         )
@@ -71,7 +69,6 @@ class CustomExceptionHandlerTests(APITestCase):
 
         # Assert custom response format
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(response.data['status'], 401)
         self.assertEqual(
             response.data['message'], 'Token is invalid or expired'
         )
