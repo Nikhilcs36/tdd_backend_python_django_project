@@ -22,8 +22,7 @@ def custom_exception_handler(exc, context):
     if isinstance(exc, (InvalidToken, AuthenticationFailed, NotAuthenticated)):
         return Response(
             {
-                "message": "Token is invalid or expired",
-                "status": status.HTTP_401_UNAUTHORIZED
+                "message": "Token is invalid or expired"
             },
             status=status.HTTP_401_UNAUTHORIZED
         )
