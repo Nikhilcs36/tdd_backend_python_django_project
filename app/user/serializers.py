@@ -203,7 +203,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class LogoutSerializer(serializers.Serializer):
     """Serializer for the logout endpoint."""
-    refresh = serializers.CharField()
+    refresh = serializers.CharField(
+        error_messages={
+            'blank': 'refresh_token_required',
+            'required': 'refresh_token_required',
+        }
+    )
 
     def validate(self, attrs):
         self.token = attrs['refresh']
