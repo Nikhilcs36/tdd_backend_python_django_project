@@ -1,5 +1,10 @@
 from django.urls import path
 from user import views
+from user.views_dashboard import (
+    UserStatsView,
+    LoginActivityView,
+    AdminDashboardView
+)
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
@@ -17,4 +22,9 @@ urlpatterns = [
          views.UserDetailView.as_view(),
          name='user-detail'),
     path('logout/', views.LogoutView.as_view(), name='logout'),
+    # Dashboard endpoints
+    path('dashboard/stats/', UserStatsView.as_view(), name='dashboard-stats'),
+    path('dashboard/login-activity/',
+         LoginActivityView.as_view(), name='login-activity'),
+    path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),  # noqa: E501
 ]
