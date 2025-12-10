@@ -3,7 +3,11 @@ from user import views
 from user.views_dashboard import (
     UserStatsView,
     LoginActivityView,
-    AdminDashboardView
+    AdminDashboardView,
+    LoginTrendsView,
+    LoginComparisonView,
+    LoginDistributionView,
+    AdminChartsView
 )
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
@@ -27,4 +31,12 @@ urlpatterns = [
     path('dashboard/login-activity/',
          LoginActivityView.as_view(), name='login-activity'),
     path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),  # noqa: E501
+    # Chart endpoints
+    path('dashboard/charts/trends/',
+         LoginTrendsView.as_view(), name='login-trends'),
+    path('dashboard/charts/comparison/',
+         LoginComparisonView.as_view(), name='login-comparison'),
+    path('dashboard/charts/distribution/',
+         LoginDistributionView.as_view(), name='login-distribution'),
+    path('admin/charts/', AdminChartsView.as_view(), name='admin-charts'),
 ]
