@@ -32,7 +32,7 @@ class UserStatsView(generics.GenericAPIView):
     @extend_schema(
         operation_id="get_user_statistics",
         summary="Get User Statistics",
-        description="Retrieve comprehensive statistics for the authenticated user including total logins, last login timestamp, weekly/monthly data, and login trend percentage.",
+        description="Retrieve comprehensive statistics for the authenticated user including total logins, last login timestamp, weekly/monthly data, and login trend percentage.",  # noqa: E501
         responses={
             200: UserStatsSerializer,
             401: OpenApiTypes.OBJECT
@@ -43,7 +43,7 @@ class UserStatsView(generics.GenericAPIView):
                 value={
                     "total_logins": 42,
                     "last_login": "2025-12-13 14:30:25",
-                    "weekly_data": {"2025-12-07": 5, "2025-12-08": 3, "2025-12-09": 7},
+                    "weekly_data": {"2025-12-07": 5, "2025-12-08": 3, "2025-12-09": 7},  # noqa: E501
                     "monthly_data": {"2025-11": 15, "2025-12": 27},
                     "login_trend": 80
                 },
@@ -68,7 +68,7 @@ class LoginActivityView(generics.ListAPIView):
     @extend_schema(
         operation_id="get_login_activity",
         summary="Get Login Activity History",
-        description="Retrieve paginated login activity history for the authenticated user including timestamps, IP addresses, user agents, and success status.",
+        description="Retrieve paginated login activity history for the authenticated user including timestamps, IP addresses, user agents, and success status.",  # noqa: E501
         responses={
             200: LoginActivitySerializer(many=True),
             401: OpenApiTypes.OBJECT
@@ -82,7 +82,7 @@ class LoginActivityView(generics.ListAPIView):
                         "username": "testuser",
                         "timestamp": "2025-12-13 14:30:25",
                         "ip_address": "192.168.1.100",
-                        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",  # noqa: E501
                         "success": True
                     },
                     {
@@ -100,7 +100,7 @@ class LoginActivityView(generics.ListAPIView):
         ]
     )
     def get(self, request):
-        """Return paginated login activity history for the authenticated user."""
+        """Return paginated login activity history for the authenticated user."""  # noqa: E501
         return super().get(request)
 
     def get_queryset(self):
@@ -117,8 +117,8 @@ class AdminDashboardView(generics.GenericAPIView):
 
     @extend_schema(
         operation_id="get_admin_dashboard",
-        summary="Get Admin Dashboard Data",
-        description="Retrieve comprehensive dashboard data for administrators including total users, active users, total logins, recent login activity, and user growth statistics.",
+        summary="Get Admin Dashboard Data",  # noqa: E501
+        description="Retrieve comprehensive dashboard data for administrators including total users, active users, total logins, recent login activity, and user growth statistics.",  # noqa: E501
         responses={
             200: AdminDashboardSerializer,
             403: OpenApiTypes.OBJECT
@@ -136,7 +136,7 @@ class AdminDashboardView(generics.GenericAPIView):
                             "username": "admin",
                             "timestamp": "2025-12-13 14:30:25",
                             "ip_address": "192.168.1.100",
-                            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",  # noqa: E501
                             "success": True
                         }
                     ],
@@ -162,8 +162,8 @@ class LoginTrendsView(generics.GenericAPIView):
 
     @extend_schema(
         operation_id="get_login_trends",
-        summary="Get Login Trends Data",
-        description="Retrieve login trends data for line charts showing successful and failed login attempts over time. Supports date filtering with optional start_date and end_date parameters.",
+        summary="Get Login Trends Data",  # noqa: E501
+        description="Retrieve login trends data for line charts showing successful and failed login attempts over time. Supports date filtering with optional start_date and end_date parameters.",  # noqa: E501
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -188,7 +188,7 @@ class LoginTrendsView(generics.GenericAPIView):
                 "Successful Response",
                 value={
                     "login_trends": {
-                        "labels": ["2025-12-10", "2025-12-11", "2025-12-12", "2025-12-13"],
+                        "labels": ["2025-12-10", "2025-12-11", "2025-12-12", "2025-12-13"],  # noqa: E501
                         "datasets": [
                             {
                                 "label": "Successful Logins",
@@ -229,7 +229,7 @@ class LoginTrendsView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        trends_data = get_login_trends_data(request.user, start_date, end_date)
+        trends_data = get_login_trends_data(request.user, start_date, end_date)  # noqa: E501
 
         return Response({
             'login_trends': trends_data
@@ -243,8 +243,8 @@ class LoginComparisonView(generics.GenericAPIView):
 
     @extend_schema(
         operation_id="get_login_comparison",
-        summary="Get Login Comparison Data",
-        description="Retrieve login comparison data for bar charts showing login counts by week or month. Automatically adjusts timeframe based on date range. Supports date filtering with optional start_date and end_date parameters.",
+        summary="Get Login Comparison Data",  # noqa: E501
+        description="Retrieve login comparison data for bar charts showing login counts by week or month. Automatically adjusts timeframe based on date range. Supports date filtering with optional start_date and end_date parameters.",  # noqa: E501
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -303,7 +303,7 @@ class LoginComparisonView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        comparison_data = get_login_comparison_data(
+        comparison_data = get_login_comparison_data(  # noqa: E501
             request.user, start_date, end_date)
 
         return Response({
@@ -318,8 +318,8 @@ class LoginDistributionView(generics.GenericAPIView):
 
     @extend_schema(
         operation_id="get_login_distribution",
-        summary="Get Login Distribution Data",
-        description="Retrieve login distribution data for pie charts showing success/failure ratio and user agent distribution. Supports date filtering with optional start_date and end_date parameters.",
+        summary="Get Login Distribution Data",  # noqa: E501
+        description="Retrieve login distribution data for pie charts showing success/failure ratio and user agent distribution. Supports date filtering with optional start_date and end_date parameters.",  # noqa: E501
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -358,7 +358,7 @@ class LoginDistributionView(generics.GenericAPIView):
                             "datasets": [
                                 {
                                     "data": [60, 25, 15],
-                                    "backgroundColor": ["#2196f3", "#4caf50", "#ff9800"]
+                                    "backgroundColor": ["#2196f3", "#4caf50", "#ff9800"]   # noqa: E501
                                 }
                             ]
                         }
@@ -388,7 +388,7 @@ class LoginDistributionView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        distribution_data = get_login_distribution_data(
+        distribution_data = get_login_distribution_data(  # noqa: E501
             request.user, start_date, end_date)
 
         return Response({
@@ -403,8 +403,8 @@ class AdminChartsView(generics.GenericAPIView):
 
     @extend_schema(
         operation_id="get_admin_charts",
-        summary="Get Admin Charts Data",
-        description="Retrieve comprehensive admin-level chart data including user growth trends, daily login activity, and success ratio statistics. Supports date filtering with optional start_date and end_date parameters.",
+        summary="Get Admin Charts Data",  # noqa: E501
+        description="Retrieve comprehensive admin-level chart data including user growth trends, daily login activity, and success ratio statistics. Supports date filtering with optional start_date and end_date parameters.",  # noqa: E501
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -440,7 +440,7 @@ class AdminChartsView(generics.GenericAPIView):
                             ]
                         },
                         "login_activity": {
-                            "labels": ["2025-12-10", "2025-12-11", "2025-12-12"],
+                            "labels": ["2025-12-10", "2025-12-11", "2025-12-12"],  # noqa: E501
                             "datasets": [
                                 {
                                     "label": "Daily Logins",

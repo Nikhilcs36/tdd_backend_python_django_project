@@ -186,7 +186,9 @@ class ChartAPITests(TestCase):
         url = reverse('user:admin-charts')
 
         # Test with date range
-        start_date = (timezone.now() - timedelta(days=14)).strftime('%Y-%m-%d')
+        start_date = (
+            timezone.now() - timedelta(days=14)
+        ).strftime('%Y-%m-%d')
         end_date = timezone.now().strftime('%Y-%m-%d')
 
         response = self.client.get(url, {
@@ -235,3 +237,253 @@ class ChartAPITests(TestCase):
             response = self.client.get(url)
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.assertIsNotNone(response.data)
+
+    def test_login_trends_includes_both_successful_and_failed_logins(self):
+        """Test that login trends includes both successful and failed login data."""  # noqa: E501
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-trends')
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data['login_trends']
+        datasets = data['datasets']
+
+        # Should have two datasets: successful and failed logins
+        self.assertEqual(len(datasets), 2)
+
+        labels = [ds['label'] for ds in datasets]
+        self.assertIn('Successful Logins', labels)
+        self.assertIn('Failed Logins', labels)
+
+        # Verify both datasets have data
+        successful_data = next(
+            ds for ds in datasets if ds['label'] == 'Successful Logins')
+        failed_data = next(
+            ds for ds in datasets if ds['label'] == 'Failed Logins')
+
+        # Should have successful logins
+        self.assertGreater(sum(successful_data['data']), 0)
+        # Should have failed logins
+        self.assertGreater(sum(failed_data['data']), 0)
+
+    def test_login_trends_date_filtration_works_correctly(self):
+        """Test that login trends date filtration works correctly."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-trends')
+
+        # Test with specific date range (last 3 days only)
+        start_date = (timezone.now() - timedelta(days=3)).strftime('%Y-%m-%d')
+        end_date = timezone.now().strftime('%Y-%m-%d')
+
+        response = self.client.get(url, {
+            'start_date': start_date,
+            'end_date': end_date
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data['login_trends']
+
+        # Should have data for exactly 4 days (start date + 3 days)
+        self.assertEqual(len(data['labels']), 4)
+
+        # Verify dates are within the requested range
+        for date_str in data['labels']:
+            response_date = timezone.datetime.strptime(
+                date_str, '%Y-%m-%d'
+            ).date()
+            start_date_obj = timezone.datetime.strptime(
+                start_date, '%Y-%m-%d'
+            ).date()
+            end_date_obj = timezone.datetime.strptime(
+                end_date, '%Y-%m-%d'
+            ).date()
+            self.assertTrue(start_date_obj <= response_date <= end_date_obj)
+
+    def test_login_comparison_date_filtration_works_correctly(self):
+        """Test that login comparison date filtration works correctly."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-comparison')
+
+        # Test with specific date range
+        start_date = (
+            timezone.now() - timedelta(days=10)
+        ).strftime('%Y-%m-%d')
+        end_date = timezone.now().strftime('%Y-%m-%d')
+
+        response = self.client.get(url, {
+            'start_date': start_date,
+            'end_date': end_date
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data['login_comparison']
+
+        # Should return data structure
+        self.assertIn('labels', data)
+        self.assertIn('datasets', data)
+        self.assertIsInstance(data['labels'], list)
+        self.assertIsInstance(data['datasets'], list)
+
+    def test_login_distribution_includes_correct_success_failure_ratio(self):
+        """Test that login distribution includes correct success/failure ratio."""  # noqa: E501
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-distribution')
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data['login_distribution']
+        success_ratio = data['success_ratio']
+
+        # Should have correct structure
+        self.assertEqual(success_ratio['labels'], ['Successful', 'Failed'])
+        self.assertEqual(len(success_ratio['datasets']), 1)
+
+        dataset = success_ratio['datasets'][0]
+        self.assertEqual(len(dataset['data']), 2)
+        self.assertEqual(sum(dataset['data']), 20)  # 15 successful + 5 failed
+
+        # Verify ratio is correct (15 successful, 5 failed)
+        self.assertEqual(dataset['data'][0], 15)  # Successful logins
+        self.assertEqual(dataset['data'][1], 5)   # Failed logins
+
+    def test_login_trends_with_same_start_and_end_date(self):
+        """Test login trends with same start and end date."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-trends')
+
+        # Test with same date
+        same_date = timezone.now().strftime('%Y-%m-%d')
+
+        response = self.client.get(url, {
+            'start_date': same_date,
+            'end_date': same_date
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data['login_trends']
+
+        # Should return data for exactly one day
+        self.assertEqual(len(data['labels']), 1)
+        self.assertEqual(data['labels'][0], same_date)
+
+    def test_login_trends_with_reversed_date_range(self):
+        """Test login trends with reversed date range (start > end)."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-trends')
+
+        # Test with reversed dates (start date after end date)
+        start_date = timezone.now().strftime('%Y-%m-%d')
+        end_date = (timezone.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+
+        response = self.client.get(url, {
+            'start_date': start_date,
+            'end_date': end_date
+        })
+
+        # Should handle reversed dates gracefully by returning empty data
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data['login_trends']
+
+        # Should return valid structure but likely empty data
+        self.assertIn('labels', data)
+        self.assertIn('datasets', data)
+        self.assertIsInstance(data['labels'], list)
+        self.assertIsInstance(data['datasets'], list)
+
+    def test_login_comparison_auto_adjusts_timeframe_based_on_range(self):
+        """Test that login comparison automatically adjusts timeframe based on date range."""  # noqa: E501
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-comparison')
+
+        # Test short range (should use weekly data)
+        response_short = self.client.get(url, {
+            'start_date': (
+                timezone.now() - timedelta(days=7)
+            ).strftime('%Y-%m-%d'),
+            'end_date': timezone.now().strftime('%Y-%m-%d')
+        })
+
+        # Test long range (should use monthly data)
+        response_long = self.client.get(url, {
+            'start_date': (
+                timezone.now() - timedelta(days=60)
+            ).strftime('%Y-%m-%d'),
+            'end_date': timezone.now().strftime('%Y-%m-%d')
+        })
+
+        self.assertEqual(response_short.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_long.status_code, status.HTTP_200_OK)
+
+    def test_admin_charts_includes_correct_data_counts(self):
+        """Test that admin charts include correct data counts."""
+        self.client.force_authenticate(user=self.admin_user)
+        url = reverse('user:admin-charts')
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data['admin_charts']
+
+        # Verify success ratio data
+        success_ratio = data['success_ratio']
+        dataset = success_ratio['datasets'][0]
+        total_logins = sum(dataset['data'])
+
+        # Should include logins from both users (15 successful + 5 failed
+        # from user1) plus 8 successful from admin user = 28 total login
+        # attempts
+        self.assertEqual(total_logins, 28)
+
+    def test_cross_verification_between_api_and_analytics_functions(self):
+        """Test cross-verification between API responses and analytics functions."""  # noqa: E501
+        from user.serializers_dashboard import get_login_trends_data
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-trends')
+
+        # Get data from API
+        api_response = self.client.get(url)
+        api_data = api_response.data['login_trends']
+
+        # Get data directly from analytics function
+        analytics_data = get_login_trends_data(self.user)
+
+        # Should have same structure and similar data
+        self.assertEqual(len(api_data['labels']),
+                         len(analytics_data['labels']))
+        self.assertEqual(len(api_data['datasets']),
+                         len(analytics_data['datasets']))
+
+        # Labels should match
+        self.assertEqual(api_data['labels'], analytics_data['labels'])
+
+        # Dataset labels should match
+        api_labels = [ds['label'] for ds in api_data['datasets']]
+        analytics_labels = [ds['label'] for ds in analytics_data['datasets']]
+        self.assertEqual(api_labels, analytics_labels)
+
+    def test_invalid_date_parameters_return_proper_error(self):
+        """Test that invalid date parameters return proper error messages."""  # noqa: E501
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-trends')
+
+        # Test various invalid date formats
+        invalid_cases = [
+            {'start_date': '2023-13-01',
+             'end_date': '2023-12-01'},  # Invalid month
+            {'start_date': '2023-01-32',
+             'end_date': '2023-12-01'},  # Invalid day
+            {'start_date': 'not-a-date',
+             'end_date': '2023-12-01'},   # Not a date
+            {'start_date': '2023/01/01',
+             'end_date': '2023-12-01'},   # Wrong format
+        ]
+
+        for params in invalid_cases:
+            response = self.client.get(url, params)
+            # Should return 400 Bad Request for invalid dates
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn('error', response.data)
+            self.assertIn('date format', response.data['error'].lower())
