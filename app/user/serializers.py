@@ -5,6 +5,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from core.models import LoginActivity
 from .validators import (
     validate_username,
     validate_email_for_signup,
@@ -186,6 +187,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         )
 
         if not user:
+            # Create failed login activity record
+            self._create_login_activity(None, False)
             self.fail('no_active_account')
 
         refresh = self.get_token(user)
@@ -198,7 +201,49 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data.update({'id': user.id})
         data.update({'username': user.username})
         data.update({'email': user.email})
+
+        # Create successful login activity record
+        self._create_login_activity(user, True)
+
         return data
+
+    def _create_login_activity(self, user, success):
+        """Create a login activity record."""
+        request = self.context.get('request')
+        if not request:
+            return
+
+        # Get IP address from request
+        ip_address = self._get_client_ip(request)
+
+        # Get user agent from request
+        user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
+
+        # For failed logins, we need to find the user by email
+        if not user and not success:
+            email = self.initial_data.get('email')
+            try:
+                user = get_user_model().objects.get(email=email)
+            except get_user_model().DoesNotExist:
+                # If user doesn't exist, we can't create a login activity
+                return
+
+        # Create login activity record
+        LoginActivity.objects.create(
+            user=user if user else None,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            success=success
+        )
+
+    def _get_client_ip(self, request):
+        """Get client IP address from request."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip or '0.0.0.0'
 
 
 class LogoutSerializer(serializers.Serializer):
