@@ -1,4 +1,4 @@
-"""Tests for dashboard API endpoints."""
+"""Tests for Login Activity Recording functionality."""
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -11,8 +11,8 @@ from django.utils import timezone
 User = get_user_model()
 
 
-class DashboardAPITests(TestCase):
-    """Test cases for dashboard API endpoints."""
+class LoginActivityRecordingTests(TestCase):
+    """Test cases for login activity recording functionality."""
 
     def setUp(self):
         """Set up test data."""
@@ -161,110 +161,6 @@ class DashboardAPITests(TestCase):
 
         # Login trend should be calculated (could be positive or negative)
         self.assertIsInstance(response.data['login_trend'], int)
-
-    def test_user_stats_last_login_format(self):
-        """Test that last_login field uses correct datetime format."""
-        self.client.force_authenticate(user=self.user)
-        url = reverse('user:dashboard-stats')
-        response = self.client.get(url)
-
-        # Verify last_login uses YYYY-MM-DD HH:MM:SS format
-        last_login = response.data['last_login']
-        self.assertIsInstance(last_login, str)
-
-        # Check format using regex pattern
-        pattern = r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$'
-        self.assertRegex(
-            last_login, pattern,
-            f"last_login '{last_login}' doesn't match expected format "
-            "YYYY-MM-DD HH:MM:SS"
-        )
-
-    def test_user_stats_data_structure(self):
-        """Test that user stats returns expected data structure."""
-        self.client.force_authenticate(user=self.user)
-        url = reverse('user:dashboard-stats')
-        response = self.client.get(url)
-
-        # Verify complete response structure
-        expected_keys = [
-            'total_logins', 'last_login', 'weekly_data',
-            'monthly_data', 'login_trend'
-        ]
-        self.assertEqual(set(response.data.keys()), set(expected_keys))
-
-        # Verify data types
-        self.assertIsInstance(response.data['total_logins'], int)
-        self.assertIsInstance(response.data['last_login'], str)
-        self.assertIsInstance(response.data['weekly_data'], dict)
-        self.assertIsInstance(response.data['monthly_data'], dict)
-        self.assertIsInstance(response.data['login_trend'], int)
-
-        # Verify weekly_data format (YYYY-WW format like "2025-50")
-        for key in response.data['weekly_data'].keys():
-            self.assertRegex(
-                key, r'^\d{4}-\d{1,2}$',
-                f"Weekly data key '{key}' doesn't match YYYY-WW format"
-            )
-
-        # Verify monthly_data format (YYYY-MM format like "2025-12")
-        for key in response.data['monthly_data'].keys():
-            self.assertRegex(
-                key, r'^\d{4}-\d{2}$',
-                f"Monthly data key '{key}' doesn't match YYYY-MM format"
-            )
-
-    def test_user_stats_last_login_accuracy(self):
-        """Test that last_login shows the correct actual timestamp."""
-        # Clear existing login activities for this user
-        LoginActivity.objects.filter(user=self.user).delete()
-
-        # Create a login activity with current timestamp
-        login_activity = LoginActivity.objects.create(
-            user=self.user,
-            ip_address='192.168.1.100',
-            user_agent='Test Browser',
-            success=True
-        )
-        # Use the actual timestamp that was set by auto_now_add
-        actual_timestamp = login_activity.timestamp
-
-        # Refresh user to get updated stats
-        self.user.refresh_from_db()
-
-        self.client.force_authenticate(user=self.user)
-        url = reverse('user:dashboard-stats')
-        response = self.client.get(url)
-
-        # Verify the last_login matches our actual timestamp
-        last_login_str = response.data['last_login']
-        from datetime import datetime
-        last_login_dt = timezone.make_aware(
-            datetime.strptime(last_login_str, '%Y-%m-%d %H:%M:%S')
-        )
-
-        # Allow for small time differences due to processing
-        time_difference = abs(
-            (last_login_dt - actual_timestamp).total_seconds()
-        )
-        self.assertLessEqual(time_difference, 5)
-
-    def test_user_stats_example_data_format(self):
-        """Test that user stats matches the expected example format."""
-        self.client.force_authenticate(user=self.user)
-        url = reverse('user:dashboard-stats')
-        response = self.client.get(url)
-
-        # Verify all expected fields are present with correct types
-        self.assertIn('total_logins', response.data)
-        self.assertIn('last_login', response.data)
-        self.assertIn('weekly_data', response.data)
-        self.assertIn('monthly_data', response.data)
-        self.assertIn('login_trend', response.data)
-
-        # Verify last_login format specifically
-        last_login = response.data['last_login']
-        self.assertRegex(last_login, r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$')
 
     def test_admin_dashboard_includes_user_growth_data(self):
         """Test that admin dashboard includes user growth data."""
