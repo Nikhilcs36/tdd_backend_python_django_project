@@ -7,7 +7,10 @@ from user.views_dashboard import (
     LoginTrendsView,
     LoginComparisonView,
     LoginDistributionView,
-    AdminChartsView
+    AdminChartsView,
+    UserSpecificStatsView,
+    UserSpecificLoginActivityView,
+    AdminUsersStatsView
 )
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
@@ -30,13 +33,42 @@ urlpatterns = [
     path('dashboard/stats/', UserStatsView.as_view(), name='dashboard-stats'),
     path('dashboard/login-activity/',
          LoginActivityView.as_view(), name='login-activity'),
-    path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),  # noqa: E501
+    path(
+        'admin/dashboard/',
+        AdminDashboardView.as_view(),
+        name='admin-dashboard'
+    ),
     # Chart endpoints
-    path('dashboard/charts/trends/',
-         LoginTrendsView.as_view(), name='login-trends'),
-    path('dashboard/charts/comparison/',
-         LoginComparisonView.as_view(), name='login-comparison'),
-    path('dashboard/charts/distribution/',
-         LoginDistributionView.as_view(), name='login-distribution'),
+    path(
+        'dashboard/charts/trends/',
+        LoginTrendsView.as_view(),
+        name='login-trends'
+    ),
+    path(
+        'dashboard/charts/comparison/',
+        LoginComparisonView.as_view(),
+        name='login-comparison'
+    ),
+    path(
+        'dashboard/charts/distribution/',
+        LoginDistributionView.as_view(),
+        name='login-distribution'
+    ),
     path('admin/charts/', AdminChartsView.as_view(), name='admin-charts'),
+    # Role-based dashboard endpoints
+    path(
+        'user/<int:user_id>/dashboard/stats/',
+        UserSpecificStatsView.as_view(),
+        name='user-specific-stats'
+    ),
+    path(
+        'user/<int:user_id>/dashboard/login-activity/',
+        UserSpecificLoginActivityView.as_view(),
+        name='user-specific-login-activity'
+    ),
+    path(
+        'admin/dashboard/users/stats/',
+        AdminUsersStatsView.as_view(),
+        name='admin-users-stats'
+    ),
 ]
