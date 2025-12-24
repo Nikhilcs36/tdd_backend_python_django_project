@@ -22,6 +22,12 @@ from .serializers_dashboard import (
     get_admin_chart_data
 )
 from core.models import LoginActivity
+from django.shortcuts import get_object_or_404
+from django.contrib.auth import get_user_model
+from rest_framework.exceptions import PermissionDenied
+from django.db.models import Q
+
+User = get_user_model()
 
 
 class UserStatsView(generics.GenericAPIView):
@@ -32,7 +38,11 @@ class UserStatsView(generics.GenericAPIView):
     @extend_schema(
         operation_id="get_user_statistics",
         summary="Get User Statistics",
-        description="Retrieve comprehensive statistics for the authenticated user including total logins, last login timestamp, weekly/monthly data, and login trend percentage.",  # noqa: E501
+        description=(
+            "Retrieve comprehensive statistics for the authenticated user "
+            "including total logins, last login timestamp, weekly/monthly "
+            "data, and login trend percentage."
+        ),
         responses={
             200: UserStatsSerializer,
             401: OpenApiTypes.OBJECT
@@ -43,7 +53,8 @@ class UserStatsView(generics.GenericAPIView):
                 value={
                     "total_logins": 42,
                     "last_login": "2025-12-13 14:30:25",
-                    "weekly_data": {"2025-12-07": 5, "2025-12-08": 3, "2025-12-09": 7},  # noqa: E501
+                    "weekly_data": {
+                        "2025-12-07": 5, "2025-12-08": 3, "2025-12-09": 7},
                     "monthly_data": {"2025-11": 15, "2025-12": 27},
                     "login_trend": 80
                 },
@@ -68,7 +79,11 @@ class LoginActivityView(generics.ListAPIView):
     @extend_schema(
         operation_id="get_login_activity",
         summary="Get Login Activity History",
-        description="Retrieve paginated login activity history for the authenticated user including timestamps, IP addresses, user agents, and success status.",  # noqa: E501
+        description=(
+            "Retrieve paginated login activity history for the authenticated "
+            "user including timestamps, IP addresses, user agents, and "
+            "success status."
+        ),
         responses={
             200: LoginActivitySerializer(many=True),
             401: OpenApiTypes.OBJECT
@@ -82,7 +97,10 @@ class LoginActivityView(generics.ListAPIView):
                         "username": "testuser",
                         "timestamp": "2025-12-13 14:30:25",
                         "ip_address": "192.168.1.100",
-                        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",  # noqa: E501
+                        "user_agent": (
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36"
+                        ),
                         "success": True
                     },
                     {
@@ -100,7 +118,8 @@ class LoginActivityView(generics.ListAPIView):
         ]
     )
     def get(self, request):
-        """Return paginated login activity history for the authenticated user."""  # noqa: E501
+        """Return paginated login activity history for the authenticated
+        user."""
         return super().get(request)
 
     def get_queryset(self):
@@ -117,8 +136,12 @@ class AdminDashboardView(generics.GenericAPIView):
 
     @extend_schema(
         operation_id="get_admin_dashboard",
-        summary="Get Admin Dashboard Data",  # noqa: E501
-        description="Retrieve comprehensive dashboard data for administrators including total users, active users, total logins, recent login activity, and user growth statistics.",  # noqa: E501
+        summary="Get Admin Dashboard Data",
+        description=(
+            "Retrieve comprehensive dashboard data for administrators "
+            "including total users, active users, total logins, recent "
+            "login activity, and user growth statistics."
+        ),
         responses={
             200: AdminDashboardSerializer,
             403: OpenApiTypes.OBJECT
@@ -136,7 +159,10 @@ class AdminDashboardView(generics.GenericAPIView):
                             "username": "admin",
                             "timestamp": "2025-12-13 14:30:25",
                             "ip_address": "192.168.1.100",
-                            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",  # noqa: E501
+                            "user_agent": (
+                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                "AppleWebKit/537.36"
+                            ),
                             "success": True
                         }
                     ],
@@ -162,8 +188,12 @@ class LoginTrendsView(generics.GenericAPIView):
 
     @extend_schema(
         operation_id="get_login_trends",
-        summary="Get Login Trends Data",  # noqa: E501
-        description="Retrieve login trends data for line charts showing successful and failed login attempts over time. Supports date filtering with optional start_date and end_date parameters.",  # noqa: E501
+        summary="Get Login Trends Data",
+        description=(
+            "Retrieve login trends data for line charts showing successful "
+            "and failed login attempts over time. Supports date filtering "
+            "with optional start_date and end_date parameters."
+        ),
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -188,7 +218,10 @@ class LoginTrendsView(generics.GenericAPIView):
                 "Successful Response",
                 value={
                     "login_trends": {
-                        "labels": ["2025-12-10", "2025-12-11", "2025-12-12", "2025-12-13"],  # noqa: E501
+                        "labels": [
+                            "2025-12-10", "2025-12-11", "2025-12-12",
+                            "2025-12-13"
+                        ],
                         "datasets": [
                             {
                                 "label": "Successful Logins",
@@ -229,7 +262,8 @@ class LoginTrendsView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        trends_data = get_login_trends_data(request.user, start_date, end_date)  # noqa: E501
+        trends_data = get_login_trends_data(
+            request.user, start_date, end_date)
 
         return Response({
             'login_trends': trends_data
@@ -243,8 +277,13 @@ class LoginComparisonView(generics.GenericAPIView):
 
     @extend_schema(
         operation_id="get_login_comparison",
-        summary="Get Login Comparison Data",  # noqa: E501
-        description="Retrieve login comparison data for bar charts showing login counts by week or month. Automatically adjusts timeframe based on date range. Supports date filtering with optional start_date and end_date parameters.",  # noqa: E501
+        summary="Get Login Comparison Data",
+        description=(
+            "Retrieve login comparison data for bar charts showing login "
+            "counts by week or month. Automatically adjusts timeframe based "
+            "on date range. Supports date filtering with optional start_date "
+            "and end_date parameters."
+        ),
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -303,7 +342,7 @@ class LoginComparisonView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        comparison_data = get_login_comparison_data(  # noqa: E501
+        comparison_data = get_login_comparison_data(
             request.user, start_date, end_date)
 
         return Response({
@@ -318,8 +357,12 @@ class LoginDistributionView(generics.GenericAPIView):
 
     @extend_schema(
         operation_id="get_login_distribution",
-        summary="Get Login Distribution Data",  # noqa: E501
-        description="Retrieve login distribution data for pie charts showing success/failure ratio and user agent distribution. Supports date filtering with optional start_date and end_date parameters.",  # noqa: E501
+        summary="Get Login Distribution Data",
+        description=(
+            "Retrieve login distribution data for pie charts showing "
+            "success/failure ratio and user agent distribution. Supports "
+            "date filtering with optional start_date and end_date parameters."
+        ),
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -358,7 +401,9 @@ class LoginDistributionView(generics.GenericAPIView):
                             "datasets": [
                                 {
                                     "data": [60, 25, 15],
-                                    "backgroundColor": ["#2196f3", "#4caf50", "#ff9800"]   # noqa: E501
+                                    "backgroundColor": [
+                                        "#2196f3", "#4caf50", "#ff9800"
+                                    ]
                                 }
                             ]
                         }
@@ -388,7 +433,7 @@ class LoginDistributionView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        distribution_data = get_login_distribution_data(  # noqa: E501
+        distribution_data = get_login_distribution_data(
             request.user, start_date, end_date)
 
         return Response({
@@ -403,8 +448,13 @@ class AdminChartsView(generics.GenericAPIView):
 
     @extend_schema(
         operation_id="get_admin_charts",
-        summary="Get Admin Charts Data",  # noqa: E501
-        description="Retrieve comprehensive admin-level chart data including user growth trends, daily login activity, and success ratio statistics. Supports date filtering with optional start_date and end_date parameters.",  # noqa: E501
+        summary="Get Admin Charts Data",
+        description=(
+            "Retrieve comprehensive admin-level chart data including user "
+            "growth trends, daily login activity, and success ratio "
+            "statistics. Supports date filtering with optional start_date "
+            "and end_date parameters."
+        ),
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -440,7 +490,9 @@ class AdminChartsView(generics.GenericAPIView):
                             ]
                         },
                         "login_activity": {
-                            "labels": ["2025-12-10", "2025-12-11", "2025-12-12"],  # noqa: E501
+                            "labels": [
+                                "2025-12-10", "2025-12-11", "2025-12-12"
+                            ],
                             "datasets": [
                                 {
                                     "label": "Daily Logins",
@@ -489,3 +541,350 @@ class AdminChartsView(generics.GenericAPIView):
         return Response({
             'admin_charts': admin_chart_data
         })
+
+
+def check_user_access(request, target_user_id):
+    """
+    Check if the requesting user has access to the target user's data.
+    Users can access their own data, admins/staff can access any user's data.
+
+    Args:
+        request: The HTTP request object
+        target_user_id: ID of the user whose data is being accessed
+
+    Returns:
+        bool: True if access is granted, False otherwise
+    """
+    if request.user.id == target_user_id:
+        return True  # User accessing own data
+    if request.user.is_staff or request.user.is_superuser:
+        return True  # Admin accessing user data
+    return False  # Unauthorized access
+
+
+class UserSpecificStatsView(generics.GenericAPIView):
+    """
+    API endpoint to get user login activity with role-based access control.
+    Provides paginated login activity history for a specific user with proper
+    authorization. Users can access their own data, admins can access any
+    user's data.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = UserStatsSerializer
+
+    @extend_schema(
+        operation_id="get_user_specific_statistics",
+        summary="Get User Statistics (Role-Based)",
+        description=(
+            "Retrieve comprehensive statistics for a specific user. Users "
+            "can access their own data, admins/staff can access any user's "
+            "data. Requires user_id path parameter."  # noqa: E501
+        ),
+        responses={
+            200: UserStatsSerializer,
+            403: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Response",
+                value={
+                    "total_logins": 42,
+                    "last_login": "2025-12-13 14:30:25",
+                    "weekly_data": {
+                        "2025-12-07": 5, "2025-12-08": 3, "2025-12-09": 7},
+                    "monthly_data": {"2025-11": 15, "2025-12": 27},
+                    "login_trend": 80
+                },
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Permission Denied",
+                value={
+                    "error": "You do not have permission to access this user's data"  # noqa: E501
+                },
+                response_only=True,
+                status_codes=["403"]
+            ),
+            OpenApiExample(
+                "User Not Found",
+                value={"error": "User not found"},
+                response_only=True,
+                status_codes=["404"]
+            )
+        ]
+    )
+    def get(self, request, user_id):
+        """
+        Return comprehensive statistics for a specific user with access control.  # noqa: E501
+
+        Args:
+            request: HTTP request object
+            user_id: ID of the target user
+
+        Returns:
+            Response: User statistics data or error response
+        """
+        # Authorization check - ensure user has permission to access this data
+        if not check_user_access(request, user_id):
+            raise PermissionDenied(
+                "You do not have permission to access this user's data")
+
+        # Get user object or return 404 if not found
+        user = get_object_or_404(User, id=user_id)
+
+        # Retrieve statistics using existing get_user_stats function
+        user_stats = get_user_stats(user)
+
+        # Serialize and return data
+        serializer = self.get_serializer(user_stats)
+        return Response(serializer.data)
+
+
+class UserSpecificLoginActivityView(generics.ListAPIView):
+    """
+    API endpoint to get user login activity with role-based access control.
+    Provides paginated login activity history for a specific user with proper
+    authorization. Users can access their own data, admins can access any
+    user's data.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = LoginActivitySerializer
+    pagination_class = UserPagination
+
+    @extend_schema(
+        operation_id="get_user_specific_login_activity",
+        summary="Get Login Activity History (Role-Based)",
+        description=(
+            "Retrieve paginated login activity history for a specific user. "
+            "Users can access their own data, admins/staff can access any "
+            "user's data. Supports pagination with page and size parameters."  # noqa: E501
+        ),
+        responses={
+            200: LoginActivitySerializer(many=True),
+            403: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Response",
+                value={
+                    "count": 42,
+                    "next": (
+                        "http://localhost:8000/api/user/123/dashboard/"
+                        "login-activity/?page=2&size=10"
+                    ),
+                    "previous": None,
+                    "results": [
+                        {
+                            "id": 123,
+                            "username": "testuser",
+                            "timestamp": "2025-12-13 14:30:25",
+                            "ip_address": "192.168.1.100",
+                            "user_agent": (
+                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                "AppleWebKit/537.36"
+                            ),
+                            "success": True
+                        }
+                    ]
+                },
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Permission Denied",
+                value={
+                    "error": "You do not have permission to access this user's data"  # noqa: E501
+                },
+                response_only=True,
+                status_codes=["403"]
+            ),
+            OpenApiExample(
+                "User Not Found",
+                value={"error": "User not found"},
+                response_only=True,
+                status_codes=["404"]
+            )
+        ]
+    )
+    def get(self, request, user_id):
+        """
+        Return paginated login activity history for a specific user with access
+        control.
+
+        Args:
+            request: HTTP request object
+            user_id: ID of the target user
+
+        Returns:
+            Response: Paginated login activity data or error response
+        """
+        # Authorization check - ensure user has permission to access this data
+        if not check_user_access(request, user_id):
+            raise PermissionDenied(
+                "You do not have permission to access this user's data")
+
+        # Get user object or return 404 if not found
+        user = get_object_or_404(User, id=user_id)
+
+        # Retrieve login activities for the user
+        activities = LoginActivity.objects.filter(user=user)
+
+        # Apply pagination
+        paginator = self.pagination_class()
+        page_obj = paginator.paginate_queryset(activities, request)
+
+        # Serialize and return paginated response
+        serializer = self.get_serializer(page_obj, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
+
+
+class AdminUsersStatsView(generics.GenericAPIView):
+    """
+    API endpoint to get batch statistics for multiple users (admin only).
+    Provides comprehensive statistics for multiple users with filtering
+    capabilities. Supports filtering by user IDs and active status.
+    """
+    permission_classes = [IsStaffOrSuperUser]
+    serializer_class = UserStatsSerializer
+
+    @extend_schema(
+        operation_id="get_admin_users_statistics",
+        summary="Get Batch User Statistics (Admin Only)",
+        description=(
+            "Retrieve comprehensive statistics for multiple users. Supports "
+            "filtering by user IDs and active status. Returns a dictionary "
+            "with user IDs as keys and their statistics as values."  # noqa: E501
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="user_ids[]",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Array of user IDs to get statistics for (e.g., "
+                    "user_ids[]=1&user_ids[]=2)"
+                ),
+                many=True
+            ),
+            OpenApiParameter(
+                name="is_active",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Filter by active status (true/false). When not "
+                    "specified, returns all users."
+                )
+            )
+        ],
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Response - Specific Users",
+                value={
+                    "1": {
+                        "total_logins": 42,
+                        "last_login": "2025-12-13 14:30:25",
+                        "weekly_data": {
+                            "2025-12-07": 5, "2025-12-08": 3,
+                            "2025-12-09": 7
+                        },
+                        "monthly_data": {"2025-11": 15, "2025-12": 27},
+                        "login_trend": 80
+                    },
+                    "2": {
+                        "total_logins": 25,
+                        "last_login": "2025-12-12 10:15:30",
+                        "weekly_data": {
+                            "2025-12-07": 2, "2025-12-08": 4,
+                            "2025-12-09": 3
+                        },
+                        "monthly_data": {"2025-11": 12, "2025-12": 13},
+                        "login_trend": 65
+                    }
+                },
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Response - Active Users Only",
+                value={
+                    "1": {
+                        "total_logins": 42,
+                        "last_login": "2025-12-13 14:30:25",
+                        "weekly_data": {
+                            "2025-12-07": 5, "2025-12-08": 3,
+                            "2025-12-09": 7
+                        },
+                        "monthly_data": {"2025-11": 15, "2025-12": 27},
+                        "login_trend": 80
+                    }
+                },
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Permission Denied",
+                value={
+                    "error": "You do not have permission to access this endpoint"  # noqa: E501
+                },
+                response_only=True,
+                status_codes=["403"]
+            ),
+            OpenApiExample(
+                "Invalid Parameters",
+                value={"error": "Invalid user_ids format. Must be integers."},
+                response_only=True,
+                status_codes=["400"]
+            )
+        ]
+    )
+    def get(self, request):
+        """
+        Return batch statistics for multiple users with filtering.
+
+        Args:
+            request: HTTP request object
+
+        Returns:
+            Response: Dictionary of user statistics or error response
+        """
+        # Get query parameters
+        user_ids = request.GET.getlist('user_ids[]')
+        is_active = request.GET.get('is_active')
+
+        # Build query filters using Django Q objects
+        filters = Q()
+
+        # Filter by specific user IDs if provided
+        if user_ids:
+            try:
+                user_ids = [int(uid) for uid in user_ids]
+                filters &= Q(id__in=user_ids)
+            except ValueError:
+                return Response(
+                    {"error": "Invalid user_ids format. Must be integers."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Filter by active status if provided
+        if is_active is not None:
+            is_active_bool = is_active.lower() == 'true'
+            filters &= Q(is_active=is_active_bool)
+
+        # Get users with applied filters
+        users = User.objects.filter(filters)
+
+        # Get stats for each user using existing get_user_stats function
+        stats_data = {}
+        for user in users:
+            stats_data[str(user.id)] = get_user_stats(user)
+
+        return Response(stats_data)
