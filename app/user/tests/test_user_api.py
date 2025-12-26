@@ -311,10 +311,78 @@ class PublicUserApiTests(TestCase):
         self.assertIn('access', res.data)
         self.assertIn('refresh', res.data)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data['id'], User.objects.get(
-            email=user_details['email']).id)
+        self.assertEqual(
+            res.data['id'],
+            User.objects.get(email=user_details['email']).id
+        )
         self.assertEqual(res.data['username'], user_details['username'])
         self.assertEqual(res.data['email'], user_details['email'])
+        # Test privilege information is included
+        self.assertIn('is_staff', res.data)
+        self.assertIn('is_superuser', res.data)
+        self.assertEqual(res.data['is_staff'], False)
+        self.assertEqual(res.data['is_superuser'], False)
+
+    def test_create_token_for_staff_user(self):
+        """Test token creation for staff user with correct privileges."""
+        user_details = {
+            'username': 'staffuser',
+            'email': 'staff@example.com',
+            'password': 'Password123',
+            'is_staff': True
+        }
+        User.objects.create_user(**user_details)
+
+        payload = {
+            'email': user_details['email'],
+            'password': user_details['password'],
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertIn('access', res.data)
+        self.assertIn('refresh', res.data)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            res.data['id'],
+            User.objects.get(email=user_details['email']).id
+        )
+        self.assertEqual(res.data['username'], user_details['username'])
+        self.assertEqual(res.data['email'], user_details['email'])
+        # Test privilege information is included
+        self.assertIn('is_staff', res.data)
+        self.assertIn('is_superuser', res.data)
+        self.assertEqual(res.data['is_staff'], True)
+        self.assertEqual(res.data['is_superuser'], False)
+
+    def test_create_token_for_admin_user(self):
+        """Test token creation for admin user with correct privileges."""
+        user_details = {
+            'username': 'adminuser',
+            'email': 'admin@example.com',
+            'password': 'Password123',
+        }
+        User.objects.create_superuser(**user_details)
+
+        payload = {
+            'email': user_details['email'],
+            'password': user_details['password'],
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertIn('access', res.data)
+        self.assertIn('refresh', res.data)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            res.data['id'],
+            User.objects.get(email=user_details['email']).id
+        )
+        self.assertEqual(res.data['username'], user_details['username'])
+        self.assertEqual(res.data['email'], user_details['email'])
+        # Test privilege information is included
+        self.assertIn('is_staff', res.data)
+        self.assertIn('is_superuser', res.data)
+        self.assertEqual(res.data['is_staff'], True)
+        self.assertEqual(res.data['is_superuser'], True)
 
     def test_create_token_bad_credentials(self):
         """Test that a token is not created with bad credentials."""
