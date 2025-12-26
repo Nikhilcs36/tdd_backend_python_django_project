@@ -201,6 +201,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data.update({'id': user.id})
         data.update({'username': user.username})
         data.update({'email': user.email})
+        # Add privilege information for frontend role-based access control
+        data.update({'is_staff': user.is_staff})
+        data.update({'is_superuser': user.is_superuser})
 
         # Create successful login activity record
         self._create_login_activity(user, True)
