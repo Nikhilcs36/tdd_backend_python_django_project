@@ -1,6 +1,9 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.exceptions import TokenError
+from django.db.models import Q
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.types import OpenApiTypes
 from .serializers import (
     UserSerializer,
     CustomTokenObtainPairSerializer,
@@ -40,11 +43,97 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
 
 
 class UserListView(generics.ListAPIView):
-    """List all users."""
+    """List all users with role filtering support."""
     serializer_class = UserSerializer
-    queryset = User.objects.all()
     permission_classes = [IsStaffOrSuperUser]
     pagination_class = UserPagination  # Enable pagination
+
+    @extend_schema(
+        operation_id="list_users",
+        summary="List Users with Role Filtering",
+        description=(
+            "Retrieve paginated list of all users. Supports role-based "
+            "filtering with the 'role' parameter. Includes 'is_admin' field "
+            "to indicate user privileges."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="role",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Filter users by role. Options: 'admin' (staff/superuser), "
+                    "'regular' (non-admin users). Omit to return all users."
+                ),
+                required=False,
+                enum=["admin", "regular"]
+            )
+        ],
+        responses={
+            200: UserSerializer(many=True),
+            403: OpenApiTypes.OBJECT
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Response - All Users",
+                value=[
+                    {
+                        "id": 1,
+                        "username": "admin",
+                        "email": "admin@example.com",
+                        "is_admin": True
+                    },
+                    {
+                        "id": 2,
+                        "username": "user",
+                        "email": "user@example.com",
+                        "is_admin": False
+                    }
+                ],
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Response - Admin Users Only",
+                value=[
+                    {
+                        "id": 1,
+                        "username": "admin",
+                        "email": "admin@example.com",
+                        "is_admin": True
+                    }
+                ],
+                response_only=True,
+                status_codes=["200"]
+            )
+        ]
+    )
+    def get(self, request, *args, **kwargs):
+        """Handle GET request with proper documentation."""
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        """Return queryset with optional role filtering."""
+        queryset = User.objects.all()
+
+        # Add role filtering
+        role = self.request.query_params.get('role')
+        if role == 'admin':
+            queryset = queryset.filter(
+                Q(is_staff=True) | Q(is_superuser=True)
+            )
+        elif role == 'regular':
+            queryset = queryset.filter(
+                is_staff=False, is_superuser=False
+            )
+
+        return queryset
+
+    def get_serializer_context(self):
+        """Add context to tell serializer to include role fields."""
+        context = super().get_serializer_context()
+        context['include_roles'] = True  # Tell serializer to include role fields
+        return context
 
 
 class UserDetailView(generics.RetrieveUpdateDestroyAPIView):

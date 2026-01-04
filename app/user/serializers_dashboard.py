@@ -330,6 +330,177 @@ def get_login_distribution_data(user, start_date=None, end_date=None):
     }
 
 
+def get_combined_login_comparison_data(users, start_date=None, end_date=None):
+    """
+    Get combined login comparison data for multiple users.
+    Aggregates login data across all specified users.
+    """
+    if start_date is None:
+        start_date = timezone.now() - timedelta(days=30)
+    if end_date is None:
+        end_date = timezone.now()
+
+    # Determine timeframe (weekly or monthly)
+    date_range = (end_date - start_date).days
+    if date_range <= 30:
+        # Use weekly data
+        trunc_func = TruncWeek
+        date_format = '%Y-%m-%d'
+    else:
+        # Use monthly data
+        trunc_func = TruncMonth
+        date_format = '%Y-%m'
+
+    login_data = LoginActivity.objects.filter(
+        user__in=users,
+        timestamp__range=(start_date, end_date),
+        success=True
+    ).annotate(
+        period=trunc_func('timestamp')
+    ).values('period').annotate(
+        count=Count('id')
+    ).order_by('period')
+
+    labels = []
+    data = []
+
+    for entry in login_data:
+        labels.append(entry['period'].strftime(date_format))
+        data.append(entry['count'])
+
+    return {
+        'labels': labels,
+        'datasets': [{
+            'label': 'Login Count (Combined)',
+            'data': data,
+            'backgroundColor': '#2196f3'
+        }]
+    }
+
+
+def get_combined_login_distribution_data(users, start_date=None, end_date=None):
+    """
+    Get combined login distribution data for multiple users.
+    Aggregates login data across all specified users.
+    """
+    if start_date is None:
+        start_date = timezone.now() - timedelta(days=30)
+    if end_date is None:
+        end_date = timezone.now()
+
+    # Get success/failure ratio across all users
+    success_count = LoginActivity.objects.filter(
+        user__in=users,
+        timestamp__range=(start_date, end_date),
+        success=True
+    ).count()
+
+    failure_count = LoginActivity.objects.filter(
+        user__in=users,
+        timestamp__range=(start_date, end_date),
+        success=False
+    ).count()
+
+    # Get user agent distribution (top 5 across all users)
+    user_agents = LoginActivity.objects.filter(
+        user__in=users,
+        timestamp__range=(start_date, end_date)
+    ).values('user_agent').annotate(
+        count=Count('id')
+    ).order_by('-count')[:5]
+
+    return {
+        'success_ratio': {
+            'labels': ['Successful', 'Failed'],
+            'datasets': [{
+                'data': [success_count, failure_count],
+                'backgroundColor': ['#4caf50', '#f44336']
+            }]
+        },
+        'user_agents': {
+            'labels': [ua['user_agent'] for ua in user_agents],
+            'datasets': [{
+                'data': [ua['count'] for ua in user_agents],
+                'backgroundColor': [
+                    '#2196f3', '#4caf50', '#ff9800', '#9c27b0', '#607d8b'
+                ]
+            }]
+        }
+    }
+
+
+def get_combined_login_trends_data(users, start_date=None, end_date=None):
+    """
+    Get combined login trends data for multiple users.
+    Aggregates login data across all specified users.
+    """
+    if start_date is None:
+        start_date = timezone.now() - timedelta(days=30)
+    if end_date is None:
+        end_date = timezone.now()
+
+    # Get login data for all users
+    login_data = LoginActivity.objects.filter(
+        user__in=users,
+        timestamp__range=(start_date, end_date)
+    ).annotate(
+        date=TruncDate('timestamp')
+    ).values('date').annotate(
+        successful=Count('id', filter=Q(success=True)),
+        failed=Count('id', filter=Q(success=False))
+    ).order_by('date')
+
+    # Prepare data structure
+    dates = []
+    successful_data = []
+    failed_data = []
+
+    # Generate all dates in range for consistent data structure
+    current_date = start_date.date()
+    end_date_date = end_date.date()
+
+    # Create date to data mapping for fast lookup
+    data_map = {}
+    for entry in login_data:
+        date_str = entry['date'].strftime('%Y-%m-%d')
+        data_map[date_str] = {
+            'successful': entry['successful'],
+            'failed': entry['failed']
+        }
+
+    # Build complete data arrays
+    while current_date <= end_date_date:
+        date_str = current_date.strftime('%Y-%m-%d')
+        dates.append(date_str)
+
+        if date_str in data_map:
+            successful_data.append(data_map[date_str]['successful'])
+            failed_data.append(data_map[date_str]['failed'])
+        else:
+            successful_data.append(0)
+            failed_data.append(0)
+
+        current_date += timedelta(days=1)
+
+    return {
+        'labels': dates,
+        'datasets': [
+            {
+                'label': 'Successful Logins (Combined)',
+                'data': successful_data,
+                'borderColor': '#4caf50',
+                'backgroundColor': 'rgba(76, 175, 80, 0.1)'
+            },
+            {
+                'label': 'Failed Logins (Combined)',
+                'data': failed_data,
+                'borderColor': '#f44336',
+                'backgroundColor': 'rgba(244, 67, 54, 0.1)'
+            }
+        ]
+    }
+
+
 def get_admin_chart_data(start_date=None, end_date=None):
     """
     Get admin-level chart data.

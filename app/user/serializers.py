@@ -28,11 +28,12 @@ class UserSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    is_admin = serializers.SerializerMethodField()
 
     class Meta:
         model = get_user_model()
-        fields = ('id', 'username', 'email', 'password',
-                  'passwordRepeat', 'image')
+        fields = ('id', 'username', 'email', 'password', 'passwordRepeat',
+                  'image', 'is_admin')
         extra_kwargs = {
             'password': {
                 'write_only': True, 'validators': [validate_password],
@@ -55,6 +56,10 @@ class UserSerializer(serializers.ModelSerializer):
                 }
             },
         }
+
+    def get_is_admin(self, obj):
+        """Return whether the user is an admin (staff or superuser)."""
+        return obj.is_staff or obj.is_superuser
 
     def validate(self, attrs):
         """
@@ -93,7 +98,7 @@ class UserSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         """
         Dynamically set email to read-only for updates and apply email
-        validator only for create operations.
+        validator only for create operations. Conditionally include role fields.
         """
         super().__init__(*args, **kwargs)
         if self.instance:
@@ -103,6 +108,10 @@ class UserSerializer(serializers.ModelSerializer):
             # errors since validate_email_for_signup already handles all
             # email validation
             self.fields['email'].validators = [validate_email_for_signup]
+
+        # Conditionally include role fields based on context
+        if not self.context.get('include_roles', False):
+            self.fields.pop('is_admin', None)
 
     def update(self, instance, validated_data):
         """Update a user, setting the password correctly and return it."""

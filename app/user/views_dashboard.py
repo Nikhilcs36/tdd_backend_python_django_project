@@ -19,7 +19,10 @@ from .serializers_dashboard import (
     get_login_trends_data,
     get_login_comparison_data,
     get_login_distribution_data,
-    get_admin_chart_data
+    get_admin_chart_data,
+    get_combined_login_trends_data,
+    get_combined_login_comparison_data,
+    get_combined_login_distribution_data
 )
 from core.models import LoginActivity
 from django.shortcuts import get_object_or_404
@@ -192,7 +195,8 @@ class LoginTrendsView(generics.GenericAPIView):
         description=(
             "Retrieve login trends data for line charts showing successful "
             "and failed login attempts over time. Supports date filtering "
-            "with optional start_date and end_date parameters."
+            "with optional start_date and end_date parameters. "
+            "Supports user filtering with user_ids parameter for admin users."
         ),
         parameters=[
             OpenApiParameter(
@@ -206,16 +210,29 @@ class LoginTrendsView(generics.GenericAPIView):
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
                 description="End date for filtering (format: YYYY-MM-DD)"
+            ),
+            OpenApiParameter(
+                name="user_ids[]",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Array of user IDs to get data for (e.g., "
+                    "user_ids[]=1&user_ids[]=2). Requires admin "
+                    "permissions."
+                ),
+                many=True,
+                required=False
             )
         ],
         responses={
             200: ChartDataSerializer,
             400: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT
+            401: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT
         },
         examples=[
             OpenApiExample(
-                "Successful Response",
+                "Successful Response - Current User",
                 value={
                     "login_trends": {
                         "labels": [
@@ -240,13 +257,41 @@ class LoginTrendsView(generics.GenericAPIView):
                 },
                 response_only=True,
                 status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Response - Multiple Users (Admin)",
+                value={
+                    "login_trends": {
+                        "labels": [
+                            "2025-12-10", "2025-12-11", "2025-12-12",
+                            "2025-12-13"
+                        ],
+                        "datasets": [
+                            {
+                                "label": "Successful Logins (Combined)",
+                                "data": [24, 16, 30, 20],
+                                "borderColor": "#4caf50",
+                                "backgroundColor": "rgba(76, 175, 80, 0.1)"
+                            },
+                            {
+                                "label": "Failed Logins (Combined)",
+                                "data": [4, 2, 6, 0],
+                                "borderColor": "#f44336",
+                                "backgroundColor": "rgba(244, 67, 54, 0.1)"
+                            }
+                        ]
+                    }
+                },
+                response_only=True,
+                status_codes=["200"]
             )
         ]
     )
     def get(self, request):
-        """Return login trends data for the authenticated user."""
+        """Return login trends data for the authenticated user or specified users."""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
+        user_ids = request.GET.getlist('user_ids[]')
 
         # Convert string dates to datetime objects if provided
         try:
@@ -262,8 +307,39 @@ class LoginTrendsView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        trends_data = get_login_trends_data(
-            request.user, start_date, end_date)
+        # Check if user_ids parameter is provided
+        if user_ids:
+            # Validate admin permissions
+            if not (request.user.is_staff or request.user.is_superuser):
+                return Response(
+                    {'error': 'Admin permissions required to filter by user IDs.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Validate user_ids format
+            try:
+                user_ids = [int(uid) for uid in user_ids]
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid user_ids format. Must be integers.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get users and check access permissions
+            users = User.objects.filter(id__in=user_ids)
+            if len(users) != len(user_ids):
+                return Response(
+                    {'error': 'One or more user IDs not found.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get combined data for specified users
+            trends_data = get_combined_login_trends_data(
+                users, start_date, end_date)
+        else:
+            # Default: current user's data
+            trends_data = get_login_trends_data(
+                request.user, start_date, end_date)
 
         return Response({
             'login_trends': trends_data
@@ -282,7 +358,8 @@ class LoginComparisonView(generics.GenericAPIView):
             "Retrieve login comparison data for bar charts showing login "
             "counts by week or month. Automatically adjusts timeframe based "
             "on date range. Supports date filtering with optional start_date "
-            "and end_date parameters."
+            "and end_date parameters. Supports user filtering with user_ids "
+            "parameter for admin users."
         ),
         parameters=[
             OpenApiParameter(
@@ -296,16 +373,29 @@ class LoginComparisonView(generics.GenericAPIView):
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
                 description="End date for filtering (format: YYYY-MM-DD)"
+            ),
+            OpenApiParameter(
+                name="user_ids[]",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Array of user IDs to get data for (e.g., "
+                    "user_ids[]=1&user_ids[]=2). Requires admin "
+                    "permissions."
+                ),
+                many=True,
+                required=False
             )
         ],
         responses={
             200: ChartDataSerializer,
             400: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT
+            401: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT
         },
         examples=[
             OpenApiExample(
-                "Successful Response",
+                "Successful Response - Current User",
                 value={
                     "login_comparison": {
                         "labels": ["Week 49", "Week 50", "Week 51"],
@@ -320,13 +410,31 @@ class LoginComparisonView(generics.GenericAPIView):
                 },
                 response_only=True,
                 status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Response - Multiple Users (Admin)",
+                value={
+                    "login_comparison": {
+                        "labels": ["Week 49", "Week 50", "Week 51"],
+                        "datasets": [
+                            {
+                                "label": "Login Count (Combined)",
+                                "data": [50, 64, 56],
+                                "backgroundColor": "#2196f3"
+                            }
+                        ]
+                    }
+                },
+                response_only=True,
+                status_codes=["200"]
             )
         ]
     )
     def get(self, request):
-        """Return login comparison data for the authenticated user."""
+        """Return login comparison data for the authenticated user or specified users."""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
+        user_ids = request.GET.getlist('user_ids[]')
 
         # Convert string dates to datetime objects if provided
         try:
@@ -342,8 +450,39 @@ class LoginComparisonView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        comparison_data = get_login_comparison_data(
-            request.user, start_date, end_date)
+        # Check if user_ids parameter is provided
+        if user_ids:
+            # Validate admin permissions
+            if not (request.user.is_staff or request.user.is_superuser):
+                return Response(
+                    {'error': 'Admin permissions required to filter by user IDs.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Validate user_ids format
+            try:
+                user_ids = [int(uid) for uid in user_ids]
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid user_ids format. Must be integers.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get users and check access permissions
+            users = User.objects.filter(id__in=user_ids)
+            if len(users) != len(user_ids):
+                return Response(
+                    {'error': 'One or more user IDs not found.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get combined data for specified users
+            comparison_data = get_combined_login_comparison_data(
+                users, start_date, end_date)
+        else:
+            # Default: current user's data
+            comparison_data = get_login_comparison_data(
+                request.user, start_date, end_date)
 
         return Response({
             'login_comparison': comparison_data
@@ -361,7 +500,8 @@ class LoginDistributionView(generics.GenericAPIView):
         description=(
             "Retrieve login distribution data for pie charts showing "
             "success/failure ratio and user agent distribution. Supports "
-            "date filtering with optional start_date and end_date parameters."
+            "date filtering with optional start_date and end_date parameters. "
+            "Supports user filtering with user_ids parameter for admin users."
         ),
         parameters=[
             OpenApiParameter(
@@ -375,16 +515,29 @@ class LoginDistributionView(generics.GenericAPIView):
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
                 description="End date for filtering (format: YYYY-MM-DD)"
+            ),
+            OpenApiParameter(
+                name="user_ids[]",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Array of user IDs to get data for (e.g., "
+                    "user_ids[]=1&user_ids[]=2). Requires admin "
+                    "permissions."
+                ),
+                many=True,
+                required=False
             )
         ],
         responses={
             200: ChartDataSerializer,
             400: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT
+            401: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT
         },
         examples=[
             OpenApiExample(
-                "Successful Response",
+                "Successful Response - Current User",
                 value={
                     "login_distribution": {
                         "success_ratio": {
@@ -411,13 +564,43 @@ class LoginDistributionView(generics.GenericAPIView):
                 },
                 response_only=True,
                 status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Response - Multiple Users (Admin)",
+                value={
+                    "login_distribution": {
+                        "success_ratio": {
+                            "labels": ["Successful", "Failed"],
+                            "datasets": [
+                                {
+                                    "data": [170, 30],
+                                    "backgroundColor": ["#4caf50", "#f44336"]
+                                }
+                            ]
+                        },
+                        "user_agents": {
+                            "labels": ["Chrome", "Firefox", "Safari"],
+                            "datasets": [
+                                {
+                                    "data": [120, 50, 30],
+                                    "backgroundColor": [
+                                        "#2196f3", "#4caf50", "#ff9800"
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                },
+                response_only=True,
+                status_codes=["200"]
             )
         ]
     )
     def get(self, request):
-        """Return login distribution data for the authenticated user."""
+        """Return login distribution data for the authenticated user or specified users."""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
+        user_ids = request.GET.getlist('user_ids[]')
 
         # Convert string dates to datetime objects if provided
         try:
@@ -433,8 +616,39 @@ class LoginDistributionView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        distribution_data = get_login_distribution_data(
-            request.user, start_date, end_date)
+        # Check if user_ids parameter is provided
+        if user_ids:
+            # Validate admin permissions
+            if not (request.user.is_staff or request.user.is_superuser):
+                return Response(
+                    {'error': 'Admin permissions required to filter by user IDs.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Validate user_ids format
+            try:
+                user_ids = [int(uid) for uid in user_ids]
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid user_ids format. Must be integers.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get users and check access permissions
+            users = User.objects.filter(id__in=user_ids)
+            if len(users) != len(user_ids):
+                return Response(
+                    {'error': 'One or more user IDs not found.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get combined data for specified users
+            distribution_data = get_combined_login_distribution_data(
+                users, start_date, end_date)
+        else:
+            # Default: current user's data
+            distribution_data = get_login_distribution_data(
+                request.user, start_date, end_date)
 
         return Response({
             'login_distribution': distribution_data

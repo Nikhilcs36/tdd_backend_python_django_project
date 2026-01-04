@@ -1029,6 +1029,142 @@ class AdminUserApiTests(TestCase):
         # Verify password was updated
         self.assertTrue(user.check_password('Newpassword123'))
 
+    def test_user_list_includes_is_admin_field(self):
+        """Test that user list includes is_admin field when include_roles=True."""
+        # Create test users for this test
+        regular_user = User.objects.create_user(
+            email='regular@example.com',
+            password='Password123',
+            username='regularuser'
+        )
+        staff_user = User.objects.create_user(
+            email='staff@example.com',
+            password='Password123',
+            username='staffuser',
+            is_staff=True
+        )
+
+        res = self.client.get(USERS_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        # Check that is_admin field is included in response
+        for user_data in res.data['results']:
+            self.assertIn('is_admin', user_data)
+            # Verify is_admin field matches expected values
+            if user_data['username'] == 'adminuser':
+                self.assertTrue(user_data['is_admin'])
+            elif user_data['username'] == 'staffuser':
+                self.assertTrue(user_data['is_admin'])
+            elif user_data['username'] == 'regularuser':
+                self.assertFalse(user_data['is_admin'])
+
+    def test_user_list_role_filter_admin_only(self):
+        """Test that user list can be filtered to show only admin users."""
+        # Create an additional admin user for this test
+        admin_user2 = User.objects.create_superuser(
+            email='admin2@example.com',
+            password='Password123',
+            username='adminuser2'
+        )
+
+        res = self.client.get(USERS_URL, {'role': 'admin', 'size': 10})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        # Should only include admin users (adminuser, adminuser2)
+        self.assertEqual(res.data['count'], 2)
+        usernames = [user['username'] for user in res.data['results']]
+        self.assertIn('adminuser', usernames)
+        self.assertIn('adminuser2', usernames)
+
+        # Verify all returned users are admins
+        for user_data in res.data['results']:
+            self.assertTrue(user_data['is_admin'])
+
+    def test_user_list_role_filter_regular_only(self):
+        """Test that user list can be filtered to show only regular users."""
+        # Create a regular user for this test
+        regular_user = User.objects.create_user(
+            email='regular@example.com',
+            password='Password123',
+            username='regularuser'
+        )
+
+        res = self.client.get(USERS_URL, {'role': 'regular'})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        # Should only include regular users
+        self.assertEqual(res.data['count'], 1)
+        usernames = [user['username'] for user in res.data['results']]
+        self.assertIn('regularuser', usernames)
+        self.assertNotIn('adminuser', usernames)
+        self.assertNotIn('staffuser', usernames)
+
+        # Verify all returned users are not admins
+        for user_data in res.data['results']:
+            self.assertFalse(user_data['is_admin'])
+
+    def test_user_list_role_filter_invalid_role(self):
+        """Test that invalid role filter returns all users."""
+        # Create additional users for this test
+        _admin_user2 = User.objects.create_superuser(
+            email='admin2@example.com',
+            password='Password123',
+            username='adminuser2'
+        )
+        _staff_user = User.objects.create_user(
+            email='staff@example.com',
+            password='Password123',
+            username='staffuser',
+            is_staff=True
+        )
+        _regular_user = User.objects.create_user(
+            email='regular@example.com',
+            password='Password123',
+            username='regularuser'
+        )
+
+        res = self.client.get(USERS_URL, {'role': 'invalid', 'size': 100})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        # Should return all users when role is invalid
+        self.assertEqual(res.data['count'], 4)
+        usernames = [user['username'] for user in res.data['results']]
+        self.assertIn('adminuser', usernames)
+        self.assertIn('adminuser2', usernames)
+        self.assertIn('staffuser', usernames)
+        self.assertIn('regularuser', usernames)
+
+    def test_user_list_no_role_filter_returns_all_users(self):
+        """Test that user list without role filter returns all users."""
+        # Create additional users for this test
+        _admin_user2 = User.objects.create_superuser(
+            email='admin2@example.com',
+            password='Password123',
+            username='adminuser2'
+        )
+        _staff_user = User.objects.create_user(
+            email='staff@example.com',
+            password='Password123',
+            username='staffuser',
+            is_staff=True
+        )
+        _regular_user = User.objects.create_user(
+            email='regular@example.com',
+            password='Password123',
+            username='regularuser'
+        )
+
+        res = self.client.get(USERS_URL, {'size': 100})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        # Should return all users
+        self.assertEqual(res.data['count'], 4)
+        usernames = [user['username'] for user in res.data['results']]
+        self.assertIn('adminuser', usernames)
+        self.assertIn('adminuser2', usernames)
+        self.assertIn('staffuser', usernames)
+        self.assertIn('regularuser', usernames)
+
 
 class StaffUserApiTests(TestCase):
     """Test the staff features of the user API."""
