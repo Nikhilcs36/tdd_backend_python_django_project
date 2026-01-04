@@ -368,6 +368,48 @@ class ChartAPITests(TestCase):
         self.assertEqual(len(data['labels']), 1)
         self.assertEqual(data['labels'][0], same_date)
 
+    def test_login_trends_with_user_ids_parameter_admin_only(self):
+        """Test login trends endpoint with user_ids parameter (admin only)."""
+        # Test with regular user - should fail
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-trends')
+
+        response = self.client.get(url, {'user_ids[]': [self.admin_user.id]})
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Test with admin user - should succeed
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(url, {
+            'user_ids[]': [self.user.id, self.admin_user.id]
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('login_trends', response.data)
+
+        # Should have combined data structure
+        data = response.data['login_trends']
+        self.assertIn('labels', data)
+        self.assertIn('datasets', data)
+        self.assertEqual(len(data['datasets']), 2)  # Successful and failed logins
+
+    def test_login_trends_invalid_user_ids_format(self):
+        """Test login trends with invalid user_ids format."""
+        self.client.force_authenticate(user=self.admin_user)
+        url = reverse('user:login-trends')
+
+        response = self.client.get(url, {'user_ids[]': 'invalid'})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)
+
+    def test_login_trends_nonexistent_user_ids(self):
+        """Test login trends with nonexistent user IDs."""
+        self.client.force_authenticate(user=self.admin_user)
+        url = reverse('user:login-trends')
+
+        response = self.client.get(url, {'user_ids[]': [99999]})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)
+
     def test_login_trends_with_reversed_date_range(self):
         """Test login trends with reversed date range (start > end)."""
         self.client.force_authenticate(user=self.user)
@@ -485,5 +527,118 @@ class ChartAPITests(TestCase):
             response = self.client.get(url, params)
             # Should return 400 Bad Request for invalid dates
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn('error', response.data)
+            self.assertIn('date format', response.data['error'].lower())
+
+    def test_login_comparison_with_user_ids_parameter_admin_only(self):
+        """Test login comparison endpoint with user_ids parameter (admin only)."""
+        # Test with regular user - should fail
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-comparison')
+
+        response = self.client.get(url, {'user_ids[]': [self.admin_user.id]})
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Test with admin user - should succeed
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(url, {'user_ids[]': [self.user.id, self.admin_user.id]})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('login_comparison', response.data)
+
+        # Should have combined comparison data structure
+        data = response.data['login_comparison']
+        self.assertIn('labels', data)
+        self.assertIn('datasets', data)
+        self.assertEqual(len(data['datasets']), 1)  # Single dataset for comparison
+
+    def test_login_distribution_with_user_ids_parameter_admin_only(self):
+        """Test login distribution endpoint with user_ids parameter (admin only)."""
+        # Test with regular user - should fail
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-distribution')
+
+        response = self.client.get(url, {'user_ids[]': [self.admin_user.id]})
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Test with admin user - should succeed
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(url, {'user_ids[]': [self.user.id, self.admin_user.id]})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('login_distribution', response.data)
+
+        # Should have combined distribution data structure
+        data = response.data['login_distribution']
+        self.assertIn('success_ratio', data)
+        self.assertIn('user_agents', data)
+
+        # Verify success ratio has combined data
+        success_ratio = data['success_ratio']
+        self.assertEqual(success_ratio['labels'], ['Successful', 'Failed'])
+        dataset = success_ratio['datasets'][0]
+        total_logins = sum(dataset['data'])
+        # Should include logins from both users
+        self.assertGreater(total_logins, 0)
+
+    def test_chart_endpoints_accept_url_encoded_user_ids_format(self):
+        """Test that chart endpoints accept both user_ids[] and user_ids%5B%5D formats."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        # Test both formats for trends endpoint
+        trends_url = reverse('user:login-trends')
+
+        # Format 1: user_ids[] (normal format)
+        response1 = self.client.get(trends_url, {'user_ids[]': [self.user.id]})
+        self.assertEqual(response1.status_code, status.HTTP_200_OK)
+
+        # Format 2: user_ids%5B%5D (URL encoded format) - simulate Postman behavior
+        # Django's test client automatically URL-decodes, so we test the actual parsing
+        response2 = self.client.get(trends_url, data={'user_ids[]': [self.user.id]})
+        self.assertEqual(response2.status_code, status.HTTP_200_OK)
+
+        # Both should return same data structure
+        self.assertIn('login_trends', response1.data)
+        self.assertIn('login_trends', response2.data)
+
+    def test_chart_endpoints_return_error_for_nonexistent_users(self):
+        """Test that chart endpoints return error for nonexistent user IDs."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        # Test with trends endpoint
+        trends_url = reverse('user:login-trends')
+
+        # Use a user ID that definitely doesn't exist
+        nonexistent_user_id = 99999
+
+        response = self.client.get(trends_url, {'user_ids[]': [nonexistent_user_id]})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)
+        self.assertIn('not found', response.data['error'].lower())
+
+    def test_chart_endpoints_validate_invalid_date_formats(self):
+        """Test that chart endpoints validate invalid date formats."""
+        self.client.force_authenticate(user=self.user)
+
+        trends_url = reverse('user:login-trends')
+
+        # Test various invalid date formats
+        invalid_dates = [
+            'invalid-date',
+            '2023-13-01',  # Invalid month
+            '2023-01-32',  # Invalid day
+            '2023/01/01',  # Wrong separator
+            '2023-01-01-extra',  # Extra characters
+        ]
+
+        for invalid_date in invalid_dates:
+            response = self.client.get(trends_url, {
+                'start_date': invalid_date,
+                'end_date': '2023-12-01'
+            })
+            self.assertEqual(
+                response.status_code, status.HTTP_400_BAD_REQUEST,
+                f"Expected 400 for invalid date: {invalid_date}"
+            )
             self.assertIn('error', response.data)
             self.assertIn('date format', response.data['error'].lower())
