@@ -98,7 +98,7 @@ class UserSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         """
         Dynamically set email to read-only for updates and apply email
-        validator only for create operations. Conditionally include role fields.
+        validator only for create operations. Conditionally include role fields.  # noqa: E501
         """
         super().__init__(*args, **kwargs)
         if self.instance:

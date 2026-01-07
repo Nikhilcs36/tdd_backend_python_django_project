@@ -1030,14 +1030,14 @@ class AdminUserApiTests(TestCase):
         self.assertTrue(user.check_password('Newpassword123'))
 
     def test_user_list_includes_is_admin_field(self):
-        """Test that user list includes is_admin field when include_roles=True."""
+        """Test that user list includes is_admin field when include_roles=True."""  # noqa: E501
         # Create test users for this test
-        regular_user = User.objects.create_user(
+        User.objects.create_user(
             email='regular@example.com',
             password='Password123',
             username='regularuser'
         )
-        staff_user = User.objects.create_user(
+        User.objects.create_user(
             email='staff@example.com',
             password='Password123',
             username='staffuser',
@@ -1061,7 +1061,7 @@ class AdminUserApiTests(TestCase):
     def test_user_list_role_filter_admin_only(self):
         """Test that user list can be filtered to show only admin users."""
         # Create an additional admin user for this test
-        admin_user2 = User.objects.create_superuser(
+        User.objects.create_superuser(
             email='admin2@example.com',
             password='Password123',
             username='adminuser2'
@@ -1083,7 +1083,7 @@ class AdminUserApiTests(TestCase):
     def test_user_list_role_filter_regular_only(self):
         """Test that user list can be filtered to show only regular users."""
         # Create a regular user for this test
-        regular_user = User.objects.create_user(
+        User.objects.create_user(
             email='regular@example.com',
             password='Password123',
             username='regularuser'
@@ -1106,18 +1106,18 @@ class AdminUserApiTests(TestCase):
     def test_user_list_role_filter_invalid_role(self):
         """Test that invalid role filter returns all users."""
         # Create additional users for this test
-        _admin_user2 = User.objects.create_superuser(
+        User.objects.create_superuser(
             email='admin2@example.com',
             password='Password123',
             username='adminuser2'
         )
-        _staff_user = User.objects.create_user(
+        User.objects.create_user(
             email='staff@example.com',
             password='Password123',
             username='staffuser',
             is_staff=True
         )
-        _regular_user = User.objects.create_user(
+        User.objects.create_user(
             email='regular@example.com',
             password='Password123',
             username='regularuser'
@@ -1137,18 +1137,18 @@ class AdminUserApiTests(TestCase):
     def test_user_list_no_role_filter_returns_all_users(self):
         """Test that user list without role filter returns all users."""
         # Create additional users for this test
-        _admin_user2 = User.objects.create_superuser(
+        User.objects.create_superuser(
             email='admin2@example.com',
             password='Password123',
             username='adminuser2'
         )
-        _staff_user = User.objects.create_user(
+        User.objects.create_user(
             email='staff@example.com',
             password='Password123',
             username='staffuser',
             is_staff=True
         )
-        _regular_user = User.objects.create_user(
+        User.objects.create_user(
             email='regular@example.com',
             password='Password123',
             username='regularuser'
@@ -1287,4 +1287,4 @@ class StaffUserApiTests(TestCase):
         res = self.client.post(LOGOUT_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(res.data['detail'], 'refresh_token_not_valid')
+        self.assertEqual(res.data['detail'], 'refresh_token_not_valid')  # noqa: E501
