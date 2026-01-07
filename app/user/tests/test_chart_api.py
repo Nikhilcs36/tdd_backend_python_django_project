@@ -239,7 +239,8 @@ class ChartAPITests(TestCase):
             self.assertIsNotNone(response.data)
 
     def test_login_trends_includes_both_successful_and_failed_logins(self):
-        """Test that login trends includes both successful and failed login data."""  # noqa: E501
+        """Test that login trends includes both successful and
+        failed login data."""
         self.client.force_authenticate(user=self.user)
         url = reverse('user:login-trends')
 
@@ -326,7 +327,8 @@ class ChartAPITests(TestCase):
         self.assertIsInstance(data['datasets'], list)
 
     def test_login_distribution_includes_correct_success_failure_ratio(self):
-        """Test that login distribution includes correct success/failure ratio."""  # noqa: E501
+        """Test that login distribution includes correct
+        success/failure ratio."""
         self.client.force_authenticate(user=self.user)
         url = reverse('user:login-distribution')
 
@@ -390,7 +392,8 @@ class ChartAPITests(TestCase):
         data = response.data['login_trends']
         self.assertIn('labels', data)
         self.assertIn('datasets', data)
-        self.assertEqual(len(data['datasets']), 2)  # Successful and failed logins
+        self.assertEqual(len(data['datasets']), 2)  # Successful and failed  # noqa: E501
+        # logins
 
     def test_login_trends_invalid_user_ids_format(self):
         """Test login trends with invalid user_ids format."""
@@ -435,7 +438,8 @@ class ChartAPITests(TestCase):
         self.assertIsInstance(data['datasets'], list)
 
     def test_login_comparison_auto_adjusts_timeframe_based_on_range(self):
-        """Test that login comparison automatically adjusts timeframe based on date range."""  # noqa: E501
+        """Test that login comparison automatically adjusts timeframe
+        based on date range."""
         self.client.force_authenticate(user=self.user)
         url = reverse('user:login-comparison')
 
@@ -479,7 +483,8 @@ class ChartAPITests(TestCase):
         self.assertEqual(total_logins, 28)
 
     def test_cross_verification_between_api_and_analytics_functions(self):
-        """Test cross-verification between API responses and analytics functions."""  # noqa: E501
+        """Test cross-verification between API responses and
+        analytics functions."""
         from user.serializers_dashboard import get_login_trends_data
 
         self.client.force_authenticate(user=self.user)
@@ -507,7 +512,8 @@ class ChartAPITests(TestCase):
         self.assertEqual(api_labels, analytics_labels)
 
     def test_invalid_date_parameters_return_proper_error(self):
-        """Test that invalid date parameters return proper error messages."""  # noqa: E501
+        """Test that invalid date parameters return proper
+        error messages."""
         self.client.force_authenticate(user=self.user)
         url = reverse('user:login-trends')
 
@@ -528,10 +534,13 @@ class ChartAPITests(TestCase):
             # Should return 400 Bad Request for invalid dates
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
             self.assertIn('error', response.data)
-            self.assertIn('date format', response.data['error'].lower())
+            self.assertIn(
+                'date format',
+                response.data['error'].lower()
+            )
 
     def test_login_comparison_with_user_ids_parameter_admin_only(self):
-        """Test login comparison endpoint with user_ids parameter (admin only)."""
+        """Test login comparison endpoint with user_ids parameter (admin only)."""  # noqa: E501
         # Test with regular user - should fail
         self.client.force_authenticate(user=self.user)
         url = reverse('user:login-comparison')
@@ -541,7 +550,7 @@ class ChartAPITests(TestCase):
 
         # Test with admin user - should succeed
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(url, {'user_ids[]': [self.user.id, self.admin_user.id]})
+        response = self.client.get(url, {'user_ids[]': [self.user.id, self.admin_user.id]})  # noqa: E501
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('login_comparison', response.data)
@@ -550,10 +559,11 @@ class ChartAPITests(TestCase):
         data = response.data['login_comparison']
         self.assertIn('labels', data)
         self.assertIn('datasets', data)
-        self.assertEqual(len(data['datasets']), 1)  # Single dataset for comparison
+        self.assertEqual(len(data['datasets']), 1)  # Single dataset for  # noqa: E501
+        # comparison
 
     def test_login_distribution_with_user_ids_parameter_admin_only(self):
-        """Test login distribution endpoint with user_ids parameter (admin only)."""
+        """Test login distribution endpoint with user_ids parameter (admin only)."""  # noqa: E501
         # Test with regular user - should fail
         self.client.force_authenticate(user=self.user)
         url = reverse('user:login-distribution')
@@ -563,7 +573,7 @@ class ChartAPITests(TestCase):
 
         # Test with admin user - should succeed
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(url, {'user_ids[]': [self.user.id, self.admin_user.id]})
+        response = self.client.get(url, {'user_ids[]': [self.user.id, self.admin_user.id]})  # noqa: E501
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('login_distribution', response.data)
@@ -575,26 +585,26 @@ class ChartAPITests(TestCase):
 
         # Verify success ratio has combined data
         success_ratio = data['success_ratio']
-        self.assertEqual(success_ratio['labels'], ['Successful', 'Failed'])
+        self.assertEqual(success_ratio['labels'], ['Successful', 'Failed'])  # noqa: E501
         dataset = success_ratio['datasets'][0]
         total_logins = sum(dataset['data'])
         # Should include logins from both users
         self.assertGreater(total_logins, 0)
 
     def test_chart_endpoints_accept_url_encoded_user_ids_format(self):
-        """Test that chart endpoints accept both user_ids[] and user_ids%5B%5D formats."""
+        """Test chart endpoints accept both user_ids[] and user_ids%5B%5D formats."""  # noqa: E501
         self.client.force_authenticate(user=self.admin_user)
 
         # Test both formats for trends endpoint
         trends_url = reverse('user:login-trends')
 
         # Format 1: user_ids[] (normal format)
-        response1 = self.client.get(trends_url, {'user_ids[]': [self.user.id]})
+        response1 = self.client.get(trends_url, {'user_ids[]': [self.user.id]})  # noqa: E501
         self.assertEqual(response1.status_code, status.HTTP_200_OK)
 
-        # Format 2: user_ids%5B%5D (URL encoded format) - simulate Postman behavior
-        # Django's test client automatically URL-decodes, so we test the actual parsing
-        response2 = self.client.get(trends_url, data={'user_ids[]': [self.user.id]})
+        # Format 2: user_ids%5B%5D (URL encoded format) - simulate Postman behavior   # noqa: E501
+        # Django's test client automatically URL-decodes, so we test the actual parsing  # noqa: E501
+        response2 = self.client.get(trends_url, data={'user_ids[]': [self.user.id]})  # noqa: E501
         self.assertEqual(response2.status_code, status.HTTP_200_OK)
 
         # Both should return same data structure
@@ -611,10 +621,13 @@ class ChartAPITests(TestCase):
         # Use a user ID that definitely doesn't exist
         nonexistent_user_id = 99999
 
-        response = self.client.get(trends_url, {'user_ids[]': [nonexistent_user_id]})
+        response = self.client.get(trends_url, {'user_ids[]': [nonexistent_user_id]})  # noqa: E501
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('error', response.data)
-        self.assertIn('not found', response.data['error'].lower())
+        self.assertIn(
+            'not found',
+            response.data['error'].lower()
+        )
 
     def test_chart_endpoints_validate_invalid_date_formats(self):
         """Test that chart endpoints validate invalid date formats."""

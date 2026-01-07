@@ -288,7 +288,7 @@ class LoginTrendsView(generics.GenericAPIView):
         ]
     )
     def get(self, request):
-        """Return login trends data for the authenticated user or specified users."""
+        """Return login trends data for the authenticated user or specified users."""  # noqa: E501
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
@@ -312,7 +312,7 @@ class LoginTrendsView(generics.GenericAPIView):
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
-                    {'error': 'Admin permissions required to filter by user IDs.'},
+                    {'error': 'Admin permissions required to filter by user IDs.'},  # noqa: E501
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -431,7 +431,7 @@ class LoginComparisonView(generics.GenericAPIView):
         ]
     )
     def get(self, request):
-        """Return login comparison data for the authenticated user or specified users."""
+        """Return login comparison data for the authenticated user or specified users."""  # noqa: E501
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
@@ -455,7 +455,7 @@ class LoginComparisonView(generics.GenericAPIView):
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
-                    {'error': 'Admin permissions required to filter by user IDs.'},
+                    {'error': 'Admin permissions required to filter by user IDs.'},  # noqa: E501
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -597,7 +597,7 @@ class LoginDistributionView(generics.GenericAPIView):
         ]
     )
     def get(self, request):
-        """Return login distribution data for the authenticated user or specified users."""
+        """Return login distribution data for the authenticated user or specified users."""  # noqa: E501
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
@@ -621,7 +621,7 @@ class LoginDistributionView(generics.GenericAPIView):
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
-                    {'error': 'Admin permissions required to filter by user IDs.'},
+                    {'error': 'Admin permissions required to filter by user IDs.'},  # noqa: E501
                     status=status.HTTP_403_FORBIDDEN
                 )
 

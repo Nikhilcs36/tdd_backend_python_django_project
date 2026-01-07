@@ -2,7 +2,8 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.exceptions import TokenError
 from django.db.models import Q
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.utils import extend_schema, OpenApiParameter, \
+ OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 from .serializers import (
     UserSerializer,
@@ -62,7 +63,7 @@ class UserListView(generics.ListAPIView):
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
                 description=(
-                    "Filter users by role. Options: 'admin' (staff/superuser), "
+                    "Filter users by role. Options: 'admin' (staff/superuser), "  # noqa: E501
                     "'regular' (non-admin users). Omit to return all users."
                 ),
                 required=False,
@@ -132,7 +133,7 @@ class UserListView(generics.ListAPIView):
     def get_serializer_context(self):
         """Add context to tell serializer to include role fields."""
         context = super().get_serializer_context()
-        context['include_roles'] = True  # Tell serializer to include role fields
+        context['include_roles'] = True  # Tell serializer to include role fields  # noqa: E501
         return context
 
 

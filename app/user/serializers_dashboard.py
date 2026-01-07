@@ -378,7 +378,7 @@ def get_combined_login_comparison_data(users, start_date=None, end_date=None):
     }
 
 
-def get_combined_login_distribution_data(users, start_date=None, end_date=None):
+def get_combined_login_distribution_data(users, start_date=None, end_date=None):  # noqa: E501
     """
     Get combined login distribution data for multiple users.
     Aggregates login data across all specified users.
