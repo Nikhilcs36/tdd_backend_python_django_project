@@ -37,23 +37,27 @@ class DashboardAPITests(TestCase):
         """Create test login activities for the user."""
         # Create successful logins for the user
         for i in range(5):
-            LoginActivity.objects.create(
+            activity = LoginActivity.objects.create(
                 user=self.user,
                 ip_address=f'192.168.1.{i+1}',
                 user_agent=f'Test Browser {i+1}',
-                success=True,
-                timestamp=timezone.now() - timedelta(days=i)
+                success=True
             )
+            # Manually set timestamp since auto_now_add ignores the parameter
+            activity.timestamp = timezone.now() - timedelta(days=i)
+            activity.save()
 
         # Create some failed logins
         for i in range(2):
-            LoginActivity.objects.create(
+            activity = LoginActivity.objects.create(
                 user=self.user,
                 ip_address=f'192.168.2.{i+1}',
                 user_agent=f'Test Browser {i+1}',
-                success=False,
-                timestamp=timezone.now() - timedelta(days=i+10)
+                success=False
             )
+            # Manually set timestamp since auto_now_add ignores the parameter
+            activity.timestamp = timezone.now() - timedelta(days=i+10)
+            activity.save()
 
     def test_user_stats_endpoint_requires_authentication(self):
         """Test that user stats endpoint requires authentication."""
@@ -275,3 +279,197 @@ class DashboardAPITests(TestCase):
         # Should include user growth data by month
         self.assertIsInstance(response.data['user_growth'], dict)
         self.assertTrue(len(response.data['user_growth']) > 0)
+
+    # Date filtering tests for USER_STATS endpoint
+    def test_user_stats_accepts_date_parameters(self):
+        """Test that user stats endpoint accepts start_date and end_date parameters."""  # noqa: E501
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:dashboard-stats')
+
+        start_date = (timezone.now() - timedelta(days=10)).strftime('%Y-%m-%d')
+        end_date = timezone.now().strftime('%Y-%m-%d')
+
+        response = self.client.get(url, {'start_date': start_date, 'end_date': end_date})  # noqa: E501
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('total_logins', response.data)
+
+    def test_user_stats_date_filtering_works(self):
+        """Test that user stats correctly filters data by date range."""
+        # Clear existing activities
+        LoginActivity.objects.filter(user=self.user).delete()
+
+        # Create activities in specific date ranges
+        base_time = timezone.now()
+
+        # Activities within date range (should be counted)
+        for i in range(3):
+            activity = LoginActivity.objects.create(
+                user=self.user,
+                ip_address=f'192.168.1.{i+1}',
+                user_agent=f'Browser {i+1}',
+                success=True
+            )
+            # Manually set timestamp since auto_now_add ignores the parameter
+            activity.timestamp = base_time - timedelta(days=i+1)  # 1-3 days ago  # noqa: E501
+            activity.save()
+
+        # Activities outside date range (should not be counted)
+        for i in range(2):
+            activity = LoginActivity.objects.create(
+                user=self.user,
+                ip_address=f'192.168.2.{i+1}',
+                user_agent=f'Browser {i+1}',
+                success=True
+            )
+            # Manually set timestamp since auto_now_add ignores the parameter
+            activity.timestamp = base_time - timedelta(days=i+10)  # 10-11 days ago  # noqa: E501
+            activity.save()
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:dashboard-stats')
+
+        # Date range: 5 days ago to now
+        start_date = (base_time - timedelta(days=5)).strftime('%Y-%m-%d')
+        end_date = base_time.strftime('%Y-%m-%d')
+
+        response = self.client.get(url, {'start_date': start_date, 'end_date': end_date})  # noqa: E501
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should count only the 3 activities within the date range
+        self.assertEqual(response.data['total_logins'], 3)
+
+    def test_user_stats_invalid_date_format_returns_400(self):
+        """Test that invalid date format returns 400 error with exact message."""  # noqa: E501
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:dashboard-stats')
+
+        response = self.client.get(url, {'start_date': 'invalid-date', 'end_date': '2025-12-31'})  # noqa: E501
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data, {'error': 'Invalid date format. Use YYYY-MM-DD format.'})  # noqa: E501
+
+    def test_user_stats_no_date_parameters_uses_default_behavior(self):
+        """Test that without date parameters, endpoint uses default behavior from User model."""  # noqa: E501
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:dashboard-stats')
+
+        # Get response without date parameters (should use User model stats)
+        response = self.client.get(url)
+
+        # Should return successful response with expected structure
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('total_logins', response.data)
+        self.assertIn('last_login', response.data)
+        self.assertIn('weekly_data', response.data)
+        self.assertIn('monthly_data', response.data)
+        self.assertIn('login_trend', response.data)
+
+        # Should have some login count from setUp activities
+        self.assertGreaterEqual(response.data['total_logins'], 0)
+
+    # Date filtering tests for LOGIN_ACTIVITY endpoint
+    def test_login_activity_date_filtering_works(self):
+        """Test that login activity endpoint correctly filters by date range."""  # noqa: E501
+        # Clear existing activities
+        LoginActivity.objects.filter(user=self.user).delete()
+
+        base_time = timezone.now()
+
+        # Create activities in different date ranges
+        # Within date range
+        for i in range(3):
+            activity = LoginActivity.objects.create(
+                user=self.user,
+                ip_address=f'192.168.1.{i+1}',
+                user_agent=f'Browser {i+1}',
+                success=True
+            )
+            # Manually set timestamp since auto_now_add ignores the parameter
+            activity.timestamp = base_time - timedelta(days=i+1)
+            activity.save()
+
+        # Outside date range
+        for i in range(2):
+            activity = LoginActivity.objects.create(
+                user=self.user,
+                ip_address=f'192.168.2.{i+1}',
+                user_agent=f'Browser {i+1}',
+                success=False
+            )
+            # Manually set timestamp since auto_now_add ignores the parameter
+            activity.timestamp = base_time - timedelta(days=i+10)
+            activity.save()
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-activity')
+
+        # Date range: 5 days ago to now
+        start_date = (base_time - timedelta(days=5)).strftime('%Y-%m-%d')
+        end_date = base_time.strftime('%Y-%m-%d')
+
+        response = self.client.get(url, {'start_date': start_date, 'end_date': end_date})  # noqa: E501
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should return only 3 activities within the date range
+        self.assertEqual(response.data['count'], 3)
+
+    def test_login_activity_invalid_date_format_returns_400(self):
+        """Test that invalid date format in login activity returns 400 error with exact message."""  # noqa: E501
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-activity')
+
+        response = self.client.get(url, {'start_date': 'not-a-date', 'end_date': '2025-12-31'})  # noqa: E501
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data, {'error': 'Invalid date format. Use YYYY-MM-DD format.'})  # noqa: E501
+
+    def test_login_activity_no_date_parameters_returns_all(self):
+        """Test that without date parameters, login activity returns all activities."""  # noqa: E501
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-activity')
+
+        # Get total count of activities for this user
+        total_activities = LoginActivity.objects.filter(user=self.user).count()
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], total_activities)
+
+    def test_login_activity_date_filtering_with_pagination(self):
+        """Test that date filtering works correctly with pagination."""
+        # Clear existing activities
+        LoginActivity.objects.filter(user=self.user).delete()
+
+        base_time = timezone.now()
+
+        # Create many activities within date range
+        for i in range(10):
+            activity = LoginActivity.objects.create(
+                user=self.user,
+                ip_address=f'192.168.1.{i+1}',
+                user_agent=f'Browser {i+1}',
+                success=True
+            )
+            # Manually set timestamp since auto_now_add ignores the parameter
+            activity.timestamp = base_time - timedelta(days=i+1)
+            activity.save()
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-activity')
+
+        # Date range that includes all activities
+        start_date = (base_time - timedelta(days=15)).strftime('%Y-%m-%d')
+        end_date = base_time.strftime('%Y-%m-%d')
+
+        response = self.client.get(url, {
+            'start_date': start_date,
+            'end_date': end_date,
+            'page': 1,
+            'size': 5
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 5)
+        self.assertEqual(response.data['count'], 10)
