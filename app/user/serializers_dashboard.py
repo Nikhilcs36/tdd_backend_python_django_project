@@ -117,19 +117,68 @@ def calculate_login_trend(user):
     return int(trend_percentage)
 
 
-def get_user_stats(user):
+def get_user_stats(user, start_date=None, end_date=None):
     """Get comprehensive statistics for a user."""
-    # Refresh the user from database to get actual values
-    # (not CombinedExpression)
-    user.refresh_from_db()
+    if start_date and end_date:
+        # Compute stats dynamically from LoginActivity records
+        activities = LoginActivity.objects.filter(
+            user=user,
+            timestamp__range=(start_date, end_date),
+            success=True
+        )
 
-    return {
-        'total_logins': user.login_count or 0,
-        'last_login': user.last_login_timestamp,
-        'weekly_data': user.weekly_logins or {},
-        'monthly_data': user.monthly_logins or {},
-        'login_trend': calculate_login_trend(user)
-    }
+        # Calculate total logins in date range
+        total_logins = activities.count()
+
+        # Calculate last login in date range
+        last_login_activity = activities.order_by('-timestamp').first()
+        last_login = last_login_activity.timestamp if last_login_activity else None  # noqa: E501
+
+        # Calculate weekly data
+        weekly_data = {}
+        for activity in activities:
+            week_key = activity.timestamp.strftime('%Y-%U')
+            weekly_data[week_key] = weekly_data.get(week_key, 0) + 1
+
+        # Calculate monthly data
+        monthly_data = {}
+        for activity in activities:
+            month_key = activity.timestamp.strftime('%Y-%m')
+            monthly_data[month_key] = monthly_data.get(month_key, 0) + 1
+
+        # Calculate login trend (simplified - compare first half vs second half of period)  # noqa: E501
+        if activities.exists():
+            period_days = (end_date - start_date).days
+            midpoint = start_date + timedelta(days=period_days // 2)
+
+            first_half = activities.filter(timestamp__lt=midpoint).count()
+            second_half = activities.filter(timestamp__gte=midpoint).count()
+
+            if first_half == 0:
+                login_trend = 100 if second_half > 0 else 0
+            else:
+                login_trend = int(((second_half - first_half) / first_half) * 100)  # noqa: E501
+        else:
+            login_trend = 0
+
+        return {
+            'total_logins': total_logins,
+            'last_login': last_login.strftime('%Y-%m-%d %H:%M:%S') if last_login else None,  # noqa: E501
+            'weekly_data': weekly_data,
+            'monthly_data': monthly_data,
+            'login_trend': login_trend
+        }
+    else:
+        # Use default behavior - pre-computed stats from User model
+        user.refresh_from_db()
+
+        return {
+            'total_logins': user.login_count or 0,
+            'last_login': user.last_login_timestamp.strftime('%Y-%m-%d %H:%M:%S') if user.last_login_timestamp else None,  # noqa: E501
+            'weekly_data': user.weekly_logins or {},
+            'monthly_data': user.monthly_logins or {},
+            'login_trend': calculate_login_trend(user)
+        }
 
 
 def get_admin_dashboard_data():

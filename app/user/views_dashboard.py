@@ -44,10 +44,28 @@ class UserStatsView(generics.GenericAPIView):
         description=(
             "Retrieve comprehensive statistics for the authenticated user "
             "including total logins, last login timestamp, weekly/monthly "
-            "data, and login trend percentage."
+            "data, and login trend percentage. Supports optional date "
+            "filtering with start_date and end_date parameters."
         ),
+        parameters=[
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Start date for filtering statistics (format: YYYY-MM-DD)",  # noqa: E501
+                required=False
+            ),
+            OpenApiParameter(
+                name="end_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="End date for filtering statistics (format: YYYY-MM-DD)",  # noqa: E501
+                required=False
+            )
+        ],
         responses={
             200: UserStatsSerializer,
+            400: OpenApiTypes.OBJECT,
             401: OpenApiTypes.OBJECT
         },
         examples=[
@@ -63,12 +81,42 @@ class UserStatsView(generics.GenericAPIView):
                 },
                 response_only=True,
                 status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Response with Date Filtering",
+                value={
+                    "total_logins": 15,
+                    "last_login": "2025-12-10 14:30:25",
+                    "weekly_data": {"2025-12-09": 5, "2025-12-10": 10},
+                    "monthly_data": {"2025-12": 15},
+                    "login_trend": 25
+                },
+                response_only=True,
+                status_codes=["200"]
             )
         ]
     )
     def get(self, request):
         """Return comprehensive statistics for the authenticated user."""
-        user_stats = get_user_stats(request.user)
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        # Convert string dates to datetime objects if provided
+        if start_date or end_date:
+            try:
+                if start_date:
+                    start_date = timezone.make_aware(
+                        datetime.strptime(start_date, '%Y-%m-%d'))
+                if end_date:
+                    end_date = timezone.make_aware(
+                        datetime.strptime(end_date, '%Y-%m-%d'))
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        user_stats = get_user_stats(request.user, start_date, end_date)
         serializer = self.get_serializer(user_stats)
         return Response(serializer.data)
 
@@ -85,10 +133,28 @@ class LoginActivityView(generics.ListAPIView):
         description=(
             "Retrieve paginated login activity history for the authenticated "
             "user including timestamps, IP addresses, user agents, and "
-            "success status."
+            "success status. Supports optional date filtering with "
+            "start_date and end_date parameters."
         ),
+        parameters=[
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Start date for filtering activities (format: YYYY-MM-DD)",  # noqa: E501
+                required=False
+            ),
+            OpenApiParameter(
+                name="end_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="End date for filtering activities (format: YYYY-MM-DD)",  # noqa: E501
+                required=False
+            )
+        ],
         responses={
             200: LoginActivitySerializer(many=True),
+            400: OpenApiTypes.OBJECT,
             401: OpenApiTypes.OBJECT
         },
         examples=[
@@ -117,6 +183,21 @@ class LoginActivityView(generics.ListAPIView):
                 ],
                 response_only=True,
                 status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Response with Date Filtering",
+                value=[
+                    {
+                        "id": 125,
+                        "username": "testuser",
+                        "timestamp": "2025-12-12 14:30:25",
+                        "ip_address": "192.168.1.102",
+                        "user_agent": "Chrome/91.0",
+                        "success": True
+                    }
+                ],
+                response_only=True,
+                status_codes=["200"]
             )
         ]
     )
@@ -127,9 +208,37 @@ class LoginActivityView(generics.ListAPIView):
 
     def get_queryset(self):
         """Return login activities for the authenticated user."""
-        return LoginActivity.objects.filter(user=self.request.user) \
+        queryset = LoginActivity.objects.filter(user=self.request.user) \
             .select_related('user') \
             .order_by('-timestamp')
+
+        # Apply date filtering if parameters are provided
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+
+        if start_date or end_date:
+            try:
+                if start_date:
+                    start_date = timezone.make_aware(
+                        datetime.strptime(start_date, '%Y-%m-%d'))
+                if end_date:
+                    end_date = timezone.make_aware(
+                        datetime.strptime(end_date, '%Y-%m-%d'))
+            except ValueError:
+                # Raise validation error for invalid date format
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError(
+                    {'error': 'Invalid date format. Use YYYY-MM-DD format.'}
+                )
+
+            if start_date and end_date:
+                queryset = queryset.filter(timestamp__range=(start_date, end_date))  # noqa: E501
+            elif start_date:
+                queryset = queryset.filter(timestamp__gte=start_date)
+            elif end_date:
+                queryset = queryset.filter(timestamp__lte=end_date)
+
+        return queryset
 
 
 class AdminDashboardView(generics.GenericAPIView):
