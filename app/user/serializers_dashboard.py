@@ -181,20 +181,45 @@ def get_user_stats(user, start_date=None, end_date=None):
         }
 
 
-def get_admin_dashboard_data():
-    """Get comprehensive data for admin dashboard."""
+def get_admin_dashboard_data(role=None):
+    """Get comprehensive data for admin dashboard.
+
+    Args:
+        role: Optional role filter ('admin', 'regular', or None for all users)
+    """
+    # Filter users based on role if specified
+    if role == 'admin':
+        user_filter = Q(is_staff=True) | Q(is_superuser=True)
+        users = User.objects.filter(user_filter)
+        login_filter = Q(user__in=users)
+    elif role == 'regular':
+        user_filter = Q(is_staff=False, is_superuser=False)
+        users = User.objects.filter(user_filter)
+        login_filter = Q(user__in=users)
+    else:
+        # No role filter - all users
+        users = User.objects.all()
+        login_filter = Q()  # No filter on logins
+
     # User statistics
-    total_users = User.objects.count()
-    active_users = User.objects.filter(is_active=True).count()
-    total_logins = LoginActivity.objects.filter(success=True).count()
+    total_users = users.count()
+    active_users = users.filter(is_active=True).count()
+    total_logins = LoginActivity.objects.filter(
+        login_filter & Q(success=True)
+    ).count()
 
-    # Recent login activity (last 10 activities)
-    login_activity = LoginActivity.objects.select_related('user') \
-        .order_by('-timestamp')[:10]
+    # Recent login activity (last 10 activities for filtered users)
+    if role:
+        login_activity = LoginActivity.objects.filter(login_filter) \
+            .select_related('user') \
+            .order_by('-timestamp')[:10]
+    else:
+        login_activity = LoginActivity.objects.select_related('user') \
+            .order_by('-timestamp')[:10]
 
-    # User growth by month
+    # User growth by month (filtered by role)
     user_growth = defaultdict(int)
-    for user in User.objects.all():
+    for user in users:
         join_month = user.date_joined.strftime('%Y-%m')
         user_growth[join_month] += 1
 
