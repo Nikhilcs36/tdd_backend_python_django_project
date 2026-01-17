@@ -655,3 +655,35 @@ class ChartAPITests(TestCase):
             )
             self.assertIn('error', response.data)
             self.assertIn('date format', response.data['error'].lower())
+
+    def test_login_trends_with_role_regular_parameter_admin_only(self):
+        """Test login trends endpoint with role=regular parameter (admin only)."""
+        url = reverse('user:login-trends')
+
+        # Test with regular user - should fail
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url, {'role': 'regular'})
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Test with admin user - should succeed
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(url, {'role': 'regular'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('login_trends', response.data)
+
+        # Should have combined data structure for regular users
+        data = response.data['login_trends']
+        self.assertIn('labels', data)
+        self.assertIn('datasets', data)
+        self.assertEqual(len(data['datasets']), 2)  # Successful and failed logins
+
+        # Verify data comes from regular user only (not admin)
+        successful_data = next(
+            ds for ds in data['datasets'] if ds['label'] == 'Successful Logins (Combined)')
+        failed_data = next(
+            ds for ds in data['datasets'] if ds['label'] == 'Failed Logins (Combined)')
+
+        # Should have data from regular user (15 successful + 5 failed = 20 total)
+        total_logins = sum(successful_data['data']) + sum(failed_data['data'])
+        self.assertEqual(total_logins, 20)  # Only regular user's logins
