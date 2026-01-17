@@ -252,15 +252,29 @@ class AdminDashboardView(generics.GenericAPIView):
         description=(
             "Retrieve comprehensive dashboard data for administrators "
             "including total users, active users, total logins, recent "
-            "login activity, and user growth statistics."
+            "login activity, and user growth statistics. Supports role-based "
+            "filtering with role parameter."
         ),
+        parameters=[
+            OpenApiParameter(
+                name="role",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Filter dashboard data by user role: 'admin' or 'regular'. "
+                    "When specified, statistics reflect only the selected user group."
+                ),
+                enum=["admin", "regular"],
+                required=False
+            )
+        ],
         responses={
             200: AdminDashboardSerializer,
             403: OpenApiTypes.OBJECT
         },
         examples=[
             OpenApiExample(
-                "Successful Response",
+                "Successful Response - All Users",
                 value={
                     "total_users": 150,
                     "active_users": 125,
@@ -282,12 +296,42 @@ class AdminDashboardView(generics.GenericAPIView):
                 },
                 response_only=True,
                 status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Response - Regular Users Only",
+                value={
+                    "total_users": 125,
+                    "active_users": 100,
+                    "total_logins": 1800,
+                    "login_activity": [
+                        {
+                            "id": 124,
+                            "username": "regular_user",
+                            "timestamp": "2025-12-13 14:30:25",
+                            "ip_address": "192.168.1.101",
+                            "user_agent": "Chrome/91.0",
+                            "success": True
+                        }
+                    ],
+                    "user_growth": {"2025-11": 20, "2025-12": 10}
+                },
+                response_only=True,
+                status_codes=["200"]
             )
         ]
     )
     def get(self, request):
         """Return comprehensive dashboard data for administrators."""
-        dashboard_data = get_admin_dashboard_data()
+        role = request.query_params.get('role')
+
+        # Validate role parameter if provided
+        if role and role not in ['admin', 'regular']:
+            return Response(
+                {'error': 'Invalid role. Must be "admin" or "regular".'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        dashboard_data = get_admin_dashboard_data(role=role)
         serializer = self.get_serializer(dashboard_data)
         return Response(serializer.data)
 
@@ -305,7 +349,8 @@ class LoginTrendsView(generics.GenericAPIView):
             "Retrieve login trends data for line charts showing successful "
             "and failed login attempts over time. Supports date filtering "
             "with optional start_date and end_date parameters. "
-            "Supports user filtering with user_ids parameter for admin users."
+            "Supports user filtering with user_ids parameter for admin users. "
+            "Supports role-based filtering with role parameter for admin users."
         ),
         parameters=[
             OpenApiParameter(
@@ -330,6 +375,27 @@ class LoginTrendsView(generics.GenericAPIView):
                     "permissions."
                 ),
                 many=True,
+                required=False
+            ),
+            OpenApiParameter(
+                name="role",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Filter by user role: 'admin' or 'regular'. "
+                    "Requires admin permissions."
+                ),
+                enum=["admin", "regular"],
+                required=False
+            ),
+            OpenApiParameter(
+                name="me",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Show only current authenticated user's data. "
+                    "Available to all authenticated users."
+                ),
                 required=False
             )
         ],
@@ -401,6 +467,7 @@ class LoginTrendsView(generics.GenericAPIView):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
+        role = request.query_params.get('role')
 
         # Convert string dates to datetime objects if provided
         try:
@@ -416,8 +483,38 @@ class LoginTrendsView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Check if role parameter is provided
+        if role:
+            # Validate admin permissions
+            if not (request.user.is_staff or request.user.is_superuser):
+                return Response(
+                    {'error': 'Admin permissions required to filter by role.'},  # noqa: E501
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Validate role parameter
+            if role not in ['admin', 'regular']:
+                return Response(
+                    {'error': 'Invalid role. Must be "admin" or "regular".'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get users by role
+            if role == 'admin':
+                users = User.objects.filter(
+                    Q(is_staff=True) | Q(is_superuser=True)
+                )
+            else:  # role == 'regular'
+                users = User.objects.filter(
+                    is_staff=False, is_superuser=False
+                )
+
+            # Get combined data for users with specified role
+            trends_data = get_combined_login_trends_data(
+                users, start_date, end_date)
+
         # Check if user_ids parameter is provided
-        if user_ids:
+        elif user_ids:
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
@@ -468,7 +565,8 @@ class LoginComparisonView(generics.GenericAPIView):
             "counts by week or month. Automatically adjusts timeframe based "
             "on date range. Supports date filtering with optional start_date "
             "and end_date parameters. Supports user filtering with user_ids "
-            "parameter for admin users."
+            "parameter for admin users. Supports role-based filtering with "
+            "role parameter for admin users."
         ),
         parameters=[
             OpenApiParameter(
@@ -493,6 +591,27 @@ class LoginComparisonView(generics.GenericAPIView):
                     "permissions."
                 ),
                 many=True,
+                required=False
+            ),
+            OpenApiParameter(
+                name="role",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Filter by user role: 'admin' or 'regular'. "
+                    "Requires admin permissions."
+                ),
+                enum=["admin", "regular"],
+                required=False
+            ),
+            OpenApiParameter(
+                name="me",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Show only current authenticated user's data. "
+                    "Available to all authenticated users."
+                ),
                 required=False
             )
         ],
@@ -544,6 +663,7 @@ class LoginComparisonView(generics.GenericAPIView):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
+        role = request.query_params.get('role')
 
         # Convert string dates to datetime objects if provided
         try:
@@ -559,8 +679,38 @@ class LoginComparisonView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Check if role parameter is provided
+        if role:
+            # Validate admin permissions
+            if not (request.user.is_staff or request.user.is_superuser):
+                return Response(
+                    {'error': 'Admin permissions required to filter by role.'},  # noqa: E501
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Validate role parameter
+            if role not in ['admin', 'regular']:
+                return Response(
+                    {'error': 'Invalid role. Must be "admin" or "regular".'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get users by role
+            if role == 'admin':
+                users = User.objects.filter(
+                    Q(is_staff=True) | Q(is_superuser=True)
+                )
+            else:  # role == 'regular'
+                users = User.objects.filter(
+                    is_staff=False, is_superuser=False
+                )
+
+            # Get combined data for users with specified role
+            comparison_data = get_combined_login_comparison_data(
+                users, start_date, end_date)
+
         # Check if user_ids parameter is provided
-        if user_ids:
+        elif user_ids:
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
@@ -610,7 +760,8 @@ class LoginDistributionView(generics.GenericAPIView):
             "Retrieve login distribution data for pie charts showing "
             "success/failure ratio and user agent distribution. Supports "
             "date filtering with optional start_date and end_date parameters. "
-            "Supports user filtering with user_ids parameter for admin users."
+            "Supports user filtering with user_ids parameter for admin users. "
+            "Supports role-based filtering with role parameter for admin users."
         ),
         parameters=[
             OpenApiParameter(
@@ -635,6 +786,27 @@ class LoginDistributionView(generics.GenericAPIView):
                     "permissions."
                 ),
                 many=True,
+                required=False
+            ),
+            OpenApiParameter(
+                name="role",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Filter by user role: 'admin' or 'regular'. "
+                    "Requires admin permissions."
+                ),
+                enum=["admin", "regular"],
+                required=False
+            ),
+            OpenApiParameter(
+                name="me",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Show only current authenticated user's data. "
+                    "Available to all authenticated users."
+                ),
                 required=False
             )
         ],
@@ -710,6 +882,7 @@ class LoginDistributionView(generics.GenericAPIView):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
+        role = request.query_params.get('role')
 
         # Convert string dates to datetime objects if provided
         try:
@@ -725,8 +898,38 @@ class LoginDistributionView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Check if role parameter is provided
+        if role:
+            # Validate admin permissions
+            if not (request.user.is_staff or request.user.is_superuser):
+                return Response(
+                    {'error': 'Admin permissions required to filter by role.'},  # noqa: E501
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Validate role parameter
+            if role not in ['admin', 'regular']:
+                return Response(
+                    {'error': 'Invalid role. Must be "admin" or "regular".'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get users by role
+            if role == 'admin':
+                users = User.objects.filter(
+                    Q(is_staff=True) | Q(is_superuser=True)
+                )
+            else:  # role == 'regular'
+                users = User.objects.filter(
+                    is_staff=False, is_superuser=False
+                )
+
+            # Get combined data for users with specified role
+            distribution_data = get_combined_login_distribution_data(
+                users, start_date, end_date)
+
         # Check if user_ids parameter is provided
-        if user_ids:
+        elif user_ids:
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
