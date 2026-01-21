@@ -52,14 +52,14 @@ class UserStatsView(generics.GenericAPIView):
                 name="start_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="Start date for filtering statistics (format: YYYY-MM-DD)",  # noqa: E501
+                description="Start date for filtering statistics",
                 required=False
             ),
             OpenApiParameter(
                 name="end_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="End date for filtering statistics (format: YYYY-MM-DD)",  # noqa: E501
+                description="End date for filtering statistics",
                 required=False
             )
         ],
@@ -261,8 +261,9 @@ class AdminDashboardView(generics.GenericAPIView):
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
                 description=(
-                    "Filter dashboard data by user role: 'admin' or 'regular'. "
-                    "When specified, statistics reflect only the selected user group."
+                    "Filter dashboard data by user role: 'admin' or 'regular'."
+                    "When specified, statistics reflect only the selected "
+                    "user group."
                 ),
                 enum=["admin", "regular"],
                 required=False
@@ -350,7 +351,7 @@ class LoginTrendsView(generics.GenericAPIView):
             "and failed login attempts over time. Supports date filtering "
             "with optional start_date and end_date parameters. "
             "Supports user filtering with user_ids parameter for admin users. "
-            "Supports role-based filtering with role parameter for admin users."
+            "Supports role-based filtering with role parameter."
         ),
         parameters=[
             OpenApiParameter(
@@ -761,7 +762,7 @@ class LoginDistributionView(generics.GenericAPIView):
             "success/failure ratio and user agent distribution. Supports "
             "date filtering with optional start_date and end_date parameters. "
             "Supports user filtering with user_ids parameter for admin users. "
-            "Supports role-based filtering with role parameter for admin users."
+            "Supports role-based filtering with role parameter."
         ),
         parameters=[
             OpenApiParameter(
@@ -1104,7 +1105,7 @@ class UserSpecificStatsView(generics.GenericAPIView):
         description=(
             "Retrieve comprehensive statistics for a specific user. Users "
             "can access their own data, admins/staff can access any user's "
-            "data. Requires user_id path parameter."  # noqa: E501
+            "data. Requires user_id path parameter."
         ),
         responses={
             200: UserStatsSerializer,

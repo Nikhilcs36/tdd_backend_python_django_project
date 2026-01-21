@@ -376,14 +376,14 @@ class ChartAPITests(TestCase):
         self.client.force_authenticate(user=self.user)
         url = reverse('user:login-trends')
 
-        response = self.client.get(url, {'user_ids[]': [self.admin_user.id]})
+        response = self.client.get(
+            url, {'user_ids[]': [self.admin_user.id]})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
         # Test with admin user - should succeed
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(url, {
-            'user_ids[]': [self.user.id, self.admin_user.id]
-        })
+        response = self.client.get(
+            url, {'user_ids[]': [self.user.id, self.admin_user.id]})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('login_trends', response.data)
@@ -392,7 +392,7 @@ class ChartAPITests(TestCase):
         data = response.data['login_trends']
         self.assertIn('labels', data)
         self.assertIn('datasets', data)
-        self.assertEqual(len(data['datasets']), 2)  # Successful and failed  # noqa: E501
+        self.assertEqual(len(data['datasets']), 2)  # Successful and failed
         # logins
 
     def test_login_trends_invalid_user_ids_format(self):
@@ -540,17 +540,19 @@ class ChartAPITests(TestCase):
             )
 
     def test_login_comparison_with_user_ids_parameter_admin_only(self):
-        """Test login comparison endpoint with user_ids parameter (admin only)."""  # noqa: E501
+        """Test login comparison endpoint with user_ids parameter."""
         # Test with regular user - should fail
         self.client.force_authenticate(user=self.user)
         url = reverse('user:login-comparison')
 
-        response = self.client.get(url, {'user_ids[]': [self.admin_user.id]})
+        response = self.client.get(
+            url, {'user_ids[]': [self.admin_user.id]})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
         # Test with admin user - should succeed
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(url, {'user_ids[]': [self.user.id, self.admin_user.id]})  # noqa: E501
+        response = self.client.get(
+            url, {'user_ids[]': [self.user.id, self.admin_user.id]})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('login_comparison', response.data)
@@ -568,12 +570,14 @@ class ChartAPITests(TestCase):
         self.client.force_authenticate(user=self.user)
         url = reverse('user:login-distribution')
 
-        response = self.client.get(url, {'user_ids[]': [self.admin_user.id]})
+        response = self.client.get(
+            url, {'user_ids[]': [self.admin_user.id]})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
         # Test with admin user - should succeed
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(url, {'user_ids[]': [self.user.id, self.admin_user.id]})  # noqa: E501
+        response = self.client.get(
+            url, {'user_ids[]': [self.user.id, self.admin_user.id]})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('login_distribution', response.data)
@@ -657,7 +661,7 @@ class ChartAPITests(TestCase):
             self.assertIn('date format', response.data['error'].lower())
 
     def test_login_trends_with_role_regular_parameter_admin_only(self):
-        """Test login trends endpoint with role=regular parameter (admin only)."""
+        """Test login trends endpoint with role=regular parameter."""
         url = reverse('user:login-trends')
 
         # Test with regular user - should fail
@@ -676,14 +680,16 @@ class ChartAPITests(TestCase):
         data = response.data['login_trends']
         self.assertIn('labels', data)
         self.assertIn('datasets', data)
-        self.assertEqual(len(data['datasets']), 2)  # Successful and failed logins
+        self.assertEqual(len(data['datasets']), 2)  # Successful and failed
 
         # Verify data comes from regular user only (not admin)
         successful_data = next(
-            ds for ds in data['datasets'] if ds['label'] == 'Successful Logins (Combined)')
+            ds for ds in data['datasets']
+            if ds['label'] == 'Successful Logins (Combined)')
         failed_data = next(
-            ds for ds in data['datasets'] if ds['label'] == 'Failed Logins (Combined)')
+            ds for ds in data['datasets']
+            if ds['label'] == 'Failed Logins (Combined)')
 
-        # Should have data from regular user (15 successful + 5 failed = 20 total)
+        # Should have data from regular user (15 successful + 5 failed)
         total_logins = sum(successful_data['data']) + sum(failed_data['data'])
         self.assertEqual(total_logins, 20)  # Only regular user's logins
