@@ -54,8 +54,9 @@ class UserListView(generics.ListAPIView):
         summary="List Users with Role Filtering",
         description=(
             "Retrieve paginated list of all users. Supports role-based "
-            "filtering with the 'role' parameter. Includes 'is_admin' field "
-            "to indicate user privileges."
+            "filtering with the 'role' parameter and 'me' parameter for "
+            "current user filtering. Includes 'is_admin' field to indicate "
+            "user privileges."
         ),
         parameters=[
             OpenApiParameter(
@@ -68,10 +69,21 @@ class UserListView(generics.ListAPIView):
                 ),
                 required=False,
                 enum=["admin", "regular"]
+            ),
+            OpenApiParameter(
+                name="me",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Show only current authenticated user. Available to all "
+                    "authenticated users."
+                ),
+                required=False
             )
         ],
         responses={
             200: UserSerializer(many=True),
+            400: OpenApiTypes.OBJECT,
             403: OpenApiTypes.OBJECT
         },
         examples=[
@@ -114,19 +126,30 @@ class UserListView(generics.ListAPIView):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
-        """Return queryset with optional role filtering."""
+        """Return queryset with optional role and me filtering."""
         queryset = User.objects.all()
 
-        # Add role filtering
+        # Check for 'me' parameter first (takes precedence)
+        me = self.request.query_params.get('me')
+        if me and me.lower() == 'true':
+            return queryset.filter(id=self.request.user.id)
+
+        # Add role filtering with validation
         role = self.request.query_params.get('role')
-        if role == 'admin':
-            queryset = queryset.filter(
-                Q(is_staff=True) | Q(is_superuser=True)
-            )
-        elif role == 'regular':
-            queryset = queryset.filter(
-                is_staff=False, is_superuser=False
-            )
+        if role:
+            if role not in ['admin', 'regular']:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError(
+                    {'error': 'Invalid role. Must be "admin" or "regular".'}
+                )
+            if role == 'admin':
+                queryset = queryset.filter(
+                    Q(is_staff=True) | Q(is_superuser=True)
+                )
+            elif role == 'regular':
+                queryset = queryset.filter(
+                    is_staff=False, is_superuser=False
+                )
 
         return queryset
 

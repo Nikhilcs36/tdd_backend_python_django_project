@@ -1104,35 +1104,15 @@ class AdminUserApiTests(TestCase):
             self.assertFalse(user_data['is_admin'])
 
     def test_user_list_role_filter_invalid_role(self):
-        """Test that invalid role filter returns all users."""
-        # Create additional users for this test
-        User.objects.create_superuser(
-            email='admin2@example.com',
-            password='Password123',
-            username='adminuser2'
-        )
-        User.objects.create_user(
-            email='staff@example.com',
-            password='Password123',
-            username='staffuser',
-            is_staff=True
-        )
-        User.objects.create_user(
-            email='regular@example.com',
-            password='Password123',
-            username='regularuser'
-        )
+        """Test that invalid role filter returns 400 error."""
+        res = self.client.get(USERS_URL, {'role': 'invalid'})
 
-        res = self.client.get(USERS_URL, {'role': 'invalid', 'size': 100})
-
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        # Should return all users when role is invalid
-        self.assertEqual(res.data['count'], 4)
-        usernames = [user['username'] for user in res.data['results']]
-        self.assertIn('adminuser', usernames)
-        self.assertIn('adminuser2', usernames)
-        self.assertIn('staffuser', usernames)
-        self.assertIn('regularuser', usernames)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', res.data)
+        self.assertEqual(
+            res.data['error'],
+            'Invalid role. Must be "admin" or "regular".'
+        )
 
     def test_user_list_no_role_filter_returns_all_users(self):
         """Test that user list without role filter returns all users."""
@@ -1164,6 +1144,53 @@ class AdminUserApiTests(TestCase):
         self.assertIn('adminuser2', usernames)
         self.assertIn('staffuser', usernames)
         self.assertIn('regularuser', usernames)
+
+    def test_user_list_me_parameter_returns_current_user_only(self):
+        """Test that me=true parameter returns only current authenticated user."""  # noqa: E501
+        # Create additional users to ensure filtering works
+        User.objects.create_superuser(
+            email='admin2@example.com',
+            password='Password123',
+            username='adminuser2'
+        )
+        User.objects.create_user(
+            email='regular@example.com',
+            password='Password123',
+            username='regularuser'
+        )
+
+        res = self.client.get(USERS_URL, {'me': 'true'})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        # Should return only the current user
+        self.assertEqual(res.data['count'], 1)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['username'],
+                         self.user.username)
+        self.assertEqual(res.data['results'][0]['email'], self.user.email)
+
+    def test_user_list_me_parameter_takes_precedence_over_role(self):
+        """Test that me=true parameter takes precedence over role parameter."""
+        # Create additional users
+        User.objects.create_superuser(
+            email='admin2@example.com',
+            password='Password123',
+            username='adminuser2'
+        )
+        User.objects.create_user(
+            email='regular@example.com',
+            password='Password123',
+            username='regularuser'
+        )
+
+        # Use both me=true and role=regular - me should take precedence
+        res = self.client.get(USERS_URL, {'me': 'true', 'role': 'regular'})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        # Should return only the current user, not regular users
+        self.assertEqual(res.data['count'], 1)
+        self.assertEqual(res.data['results'][0]['username'],
+                         self.user.username)
 
 
 class StaffUserApiTests(TestCase):
