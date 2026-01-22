@@ -267,6 +267,16 @@ class AdminDashboardView(generics.GenericAPIView):
                 ),
                 enum=["admin", "regular"],
                 required=False
+            ),
+            OpenApiParameter(
+                name="me",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Show only current authenticated user's data. "
+                    "Available to admin users for debugging purposes."
+                ),
+                required=False
             )
         ],
         responses={
@@ -324,15 +334,21 @@ class AdminDashboardView(generics.GenericAPIView):
     def get(self, request):
         """Return comprehensive dashboard data for administrators."""
         role = request.query_params.get('role')
+        me = request.query_params.get('me')
 
-        # Validate role parameter if provided
-        if role and role not in ['admin', 'regular']:
-            return Response(
-                {'error': 'Invalid role. Must be "admin" or "regular".'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Check for 'me' parameter first (takes precedence)
+        if me and me.lower() == 'true':
+            dashboard_data = get_admin_dashboard_data(me=request.user)
+        else:
+            # Validate role parameter if provided
+            if role and role not in ['admin', 'regular']:
+                return Response(
+                    {'error': 'Invalid role. Must be "admin" or "regular".'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        dashboard_data = get_admin_dashboard_data(role=role)
+            dashboard_data = get_admin_dashboard_data(role=role)
+
         serializer = self.get_serializer(dashboard_data)
         return Response(serializer.data)
 

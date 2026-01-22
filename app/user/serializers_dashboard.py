@@ -181,14 +181,20 @@ def get_user_stats(user, start_date=None, end_date=None):
         }
 
 
-def get_admin_dashboard_data(role=None):
+def get_admin_dashboard_data(role=None, me=None):
     """Get comprehensive data for admin dashboard.
 
     Args:
         role: Optional role filter ('admin', 'regular', or None for all users)
+        me: Optional user object to show data for single user
+        (takes precedence over role)
     """
+    # Handle 'me' parameter - takes precedence over role
+    if me:
+        users = User.objects.filter(id=me.id)
+        login_filter = Q(user=me)
     # Filter users based on role if specified
-    if role == 'admin':
+    elif role == 'admin':
         user_filter = Q(is_staff=True) | Q(is_superuser=True)
         users = User.objects.filter(user_filter)
         login_filter = Q(user__in=users)
@@ -209,7 +215,7 @@ def get_admin_dashboard_data(role=None):
     ).count()
 
     # Recent login activity (last 10 activities for filtered users)
-    if role:
+    if me or role:
         login_activity = LoginActivity.objects.filter(login_filter) \
             .select_related('user') \
             .order_by('-timestamp')[:10]
@@ -217,7 +223,7 @@ def get_admin_dashboard_data(role=None):
         login_activity = LoginActivity.objects.select_related('user') \
             .order_by('-timestamp')[:10]
 
-    # User growth by month (filtered by role)
+    # User growth by month (filtered by role or single user)
     user_growth = defaultdict(int)
     for user in users:
         join_month = user.date_joined.strftime('%Y-%m')
@@ -452,7 +458,9 @@ def get_combined_login_comparison_data(users, start_date=None, end_date=None):
     }
 
 
-def get_combined_login_distribution_data(users, start_date=None, end_date=None):  # noqa: E501
+def get_combined_login_distribution_data(
+    users, start_date=None, end_date=None
+):
     """
     Get combined login distribution data for multiple users.
     Aggregates login data across all specified users.
