@@ -178,11 +178,11 @@ class DashboardAPITests(TestCase):
 
         # Check format using regex pattern
         pattern = r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$'
-        self.assertRegex(
-            last_login, pattern,
+        error_msg = (
             f"last_login '{last_login}' doesn't match expected format "
             "YYYY-MM-DD HH:MM:SS"
-        )
+        )  # noqa: E501
+        self.assertRegex(last_login, pattern, error_msg)
 
     def test_user_stats_data_structure(self):
         """Test that user stats returns expected data structure."""
@@ -473,3 +473,80 @@ class DashboardAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 5)
         self.assertEqual(response.data['count'], 10)
+
+    def test_admin_dashboard_me_parameter_shows_current_user_data(self):
+        """Test that me=true parameter shows only current admin user's data in dashboard format."""  # noqa: E501
+        # Create additional users and login activities to ensure filtering works  # noqa: E501
+        other_admin = User.objects.create_superuser(
+            username='otheradmin',
+            email='otheradmin@example.com',
+            password='adminpass123'
+        )
+
+        # Create login activities for the other admin
+        for i in range(3):
+            activity = LoginActivity.objects.create(
+                user=other_admin,
+                ip_address=f'192.168.3.{i+1}',
+                user_agent=f'Other Admin Browser {i+1}',
+                success=True
+            )
+            activity.timestamp = timezone.now() - timedelta(days=i)
+            activity.save()
+
+        # Create login activities for the current admin user
+        for i in range(2):
+            activity = LoginActivity.objects.create(
+                user=self.admin_user,
+                ip_address=f'192.168.4.{i+1}',
+                user_agent=f'Current Admin Browser {i+1}',
+                success=True
+            )
+            activity.timestamp = timezone.now() - timedelta(days=i)
+            activity.save()
+
+        self.client.force_authenticate(user=self.admin_user)
+        url = reverse('user:admin-dashboard')
+
+        # Get dashboard with me=true
+        response = self.client.get(url, {'me': 'true'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Should show data for only the current admin user
+        # total_users should be 1 (only current admin)
+        self.assertEqual(response.data['total_users'], 1)
+        self.assertEqual(response.data['active_users'], 1)
+
+        # total_logins should be only current admin's logins (2)
+        self.assertEqual(response.data['total_logins'], 2)
+
+        # login_activity should only show current admin's activities
+        self.assertIsInstance(response.data['login_activity'], list)
+        for activity in response.data['login_activity']:
+            self.assertEqual(activity['username'], self.admin_user.username)
+
+    def test_admin_dashboard_me_parameter_takes_precedence_over_role(self):
+        """Test that me=true parameter takes precedence over role parameter."""
+        # Create additional users (intentionally unused for this test)
+        other_admin = User.objects.create_superuser(  # noqa: F841
+            username='otheradmin2',
+            email='otheradmin2@example.com',
+            password='adminpass123'
+        )
+        regular_user = User.objects.create_user(  # noqa: F841
+            username='regularuser2',
+            email='regularuser2@example.com',
+            password='userpass123'
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        url = reverse('user:admin-dashboard')
+
+        # Use both me=true and role=regular - me should take precedence
+        response = self.client.get(url, {'me': 'true', 'role': 'regular'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should show only current admin user's data, not regular users
+        self.assertEqual(response.data['total_users'], 1)
+        self.assertEqual(response.data['active_users'], 1)
