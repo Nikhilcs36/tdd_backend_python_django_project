@@ -57,12 +57,12 @@ urlpatterns = [
     path('admin/charts/', AdminChartsView.as_view(), name='admin-charts'),
     # Role-based dashboard endpoints
     path(
-        'user/<int:user_id>/dashboard/stats/',
+        '<int:user_id>/dashboard/stats/',
         UserSpecificStatsView.as_view(),
         name='user-specific-stats'
     ),
     path(
-        'user/<int:user_id>/dashboard/login-activity/',
+        '<int:user_id>/dashboard/login-activity/',
         UserSpecificLoginActivityView.as_view(),
         name='user-specific-login-activity'
     ),
