@@ -132,7 +132,9 @@ def get_user_stats(user, start_date=None, end_date=None):
 
         # Calculate last login in date range
         last_login_activity = activities.order_by('-timestamp').first()
-        last_login = last_login_activity.timestamp if last_login_activity else None  # noqa: E501
+        last_login = (
+            last_login_activity.timestamp if last_login_activity else None
+        )
 
         # Calculate weekly data
         weekly_data = {}
@@ -157,13 +159,16 @@ def get_user_stats(user, start_date=None, end_date=None):
             if first_half == 0:
                 login_trend = 100 if second_half > 0 else 0
             else:
-                login_trend = int(((second_half - first_half) / first_half) * 100)  # noqa: E501
+                trend_calc = ((second_half - first_half) / first_half) * 100
+                login_trend = int(trend_calc)
         else:
             login_trend = 0
 
         return {
             'total_logins': total_logins,
-            'last_login': last_login.strftime('%Y-%m-%d %H:%M:%S') if last_login else None,  # noqa: E501
+            'last_login': (
+                last_login.strftime('%Y-%m-%d %H:%M:%S') if last_login else None
+            ),
             'weekly_data': weekly_data,
             'monthly_data': monthly_data,
             'login_trend': login_trend
@@ -181,18 +186,28 @@ def get_user_stats(user, start_date=None, end_date=None):
         }
 
 
-def get_admin_dashboard_data(role=None, me=None):
+def get_admin_dashboard_data(role=None, me=None, user_ids=None, filter_type=None, start_date=None, end_date=None):
     """Get comprehensive data for admin dashboard.
 
     Args:
         role: Optional role filter ('admin', 'regular', or None for all users)
         me: Optional user object to show data for single user
+        (takes precedence over role and user_ids)
+        user_ids: Optional list of user IDs to filter by
         (takes precedence over role)
+        filter_type: Optional user type filter ('admin_only', 'regular_users',
+        'active_only', 'inactive_only')
+        start_date: Optional start date for filtering login activities
+        end_date: Optional end date for filtering login activities
     """
-    # Handle 'me' parameter - takes precedence over role
+    # Handle 'me' parameter - takes precedence over all others
     if me:
         users = User.objects.filter(id=me.id)
         login_filter = Q(user=me)
+    # Handle user_ids parameter - takes precedence over role
+    elif user_ids is not None:
+        users = User.objects.filter(id__in=user_ids)
+        login_filter = Q(user__in=users)
     # Filter users based on role if specified
     elif role == 'admin':
         user_filter = Q(is_staff=True) | Q(is_superuser=True)
@@ -203,9 +218,35 @@ def get_admin_dashboard_data(role=None, me=None):
         users = User.objects.filter(user_filter)
         login_filter = Q(user__in=users)
     else:
-        # No role filter - all users
+        # Start with all users, then apply filter_type if specified
         users = User.objects.all()
         login_filter = Q()  # No filter on logins
+
+        if filter_type == 'admin_only':
+            users = users.filter(Q(is_staff=True) | Q(is_superuser=True))
+            login_filter = Q(user__in=users)
+        elif filter_type == 'regular_users':
+            users = users.filter(is_staff=False, is_superuser=False)
+            login_filter = Q(user__in=users)
+        elif filter_type == 'active_only':
+            users = users.filter(is_active=True)
+            login_filter = Q(user__in=users)
+        elif filter_type == 'me':
+            # When filter_type='me', we need the me parameter to be passed
+            # This will be handled in the view by setting me=request.user
+            # So this case should not normally be reached here
+            pass
+
+    # Apply date filtering to login activities if dates provided
+    if start_date or end_date:
+        date_filter = Q()
+        if start_date and end_date:
+            date_filter = Q(timestamp__range=(start_date, end_date))
+        elif start_date:
+            date_filter = Q(timestamp__gte=start_date)
+        elif end_date:
+            date_filter = Q(timestamp__lte=end_date)
+        login_filter &= date_filter
 
     # User statistics
     total_users = users.count()
@@ -215,15 +256,17 @@ def get_admin_dashboard_data(role=None, me=None):
     ).count()
 
     # Recent login activity (last 10 activities for filtered users)
-    if me or role:
+    if me or role or user_ids or filter_type:
         login_activity = LoginActivity.objects.filter(login_filter) \
             .select_related('user') \
             .order_by('-timestamp')[:10]
     else:
-        login_activity = LoginActivity.objects.select_related('user') \
+        login_activity = LoginActivity.objects.filter(login_filter) \
+            .select_related('user') \
             .order_by('-timestamp')[:10]
 
-    # User growth by month (filtered by role or single user)
+    # User growth by month (filtered by role, user_ids, filter_type, or single user)
+    # Note: User growth is not affected by date filtering as it shows user registration dates
     user_growth = defaultdict(int)
     for user in users:
         join_month = user.date_joined.strftime('%Y-%m')

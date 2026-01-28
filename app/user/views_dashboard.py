@@ -25,10 +25,10 @@ from .serializers_dashboard import (
     get_combined_login_distribution_data
 )
 from core.models import LoginActivity
-from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
-from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import PermissionDenied
 
 User = get_user_model()
 
@@ -141,14 +141,14 @@ class LoginActivityView(generics.ListAPIView):
                 name="start_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="Start date for filtering activities (format: YYYY-MM-DD)",  # noqa: E501
+                description="Start date for filtering activities (YYYY-MM-DD)",
                 required=False
             ),
             OpenApiParameter(
                 name="end_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="End date for filtering activities (format: YYYY-MM-DD)",  # noqa: E501
+                description="End date for filtering activities (YYYY-MM-DD)",
                 required=False
             )
         ],
@@ -252,20 +252,52 @@ class AdminDashboardView(generics.GenericAPIView):
         description=(
             "Retrieve comprehensive dashboard data for administrators "
             "including total users, active users, total logins, recent "
-            "login activity, and user growth statistics. Supports role-based "
-            "filtering with role parameter."
+            "login activity, and user growth statistics. Supports various "
+            "filtering options for dynamic statistics."
         ),
         parameters=[
+            OpenApiParameter(
+                name="user_ids[]",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Array of user IDs to filter statistics (e.g., "
+                    "user_ids[]=1&user_ids[]=2)"
+                ),
+                many=True,
+                required=False
+            ),
             OpenApiParameter(
                 name="role",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
                 description=(
-                    "Filter dashboard data by user role: 'admin' or 'regular'."
-                    "When specified, statistics reflect only the selected "
-                    "user group."
+                    "Filter by user role: 'admin' or 'regular'"
                 ),
                 enum=["admin", "regular"],
+                required=False
+            ),
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Start date for filtering login activities (YYYY-MM-DD)"
+            ),
+            OpenApiParameter(
+                name="end_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="End date for filtering login activities (YYYY-MM-DD)"
+            ),
+            OpenApiParameter(
+                name="filter",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Filter users by type: 'all', 'admin_only', 'regular_users', "
+                    "'active_only', 'me'"
+                ),
+                enum=["all", "admin_only", "regular_users", "active_only", "me"],
                 required=False
             ),
             OpenApiParameter(
@@ -281,6 +313,7 @@ class AdminDashboardView(generics.GenericAPIView):
         ],
         responses={
             200: AdminDashboardSerializer,
+            400: OpenApiTypes.OBJECT,
             403: OpenApiTypes.OBJECT
         },
         examples=[
@@ -335,19 +368,68 @@ class AdminDashboardView(generics.GenericAPIView):
         """Return comprehensive dashboard data for administrators."""
         role = request.query_params.get('role')
         me = request.query_params.get('me')
+        user_ids = request.GET.getlist('user_ids[]')
+        filter_type = request.query_params.get('filter')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
 
-        # Check for 'me' parameter first (takes precedence)
-        if me and me.lower() == 'true':
-            dashboard_data = get_admin_dashboard_data(me=request.user)
-        else:
-            # Validate role parameter if provided
-            if role and role not in ['admin', 'regular']:
+        # Parse and validate dates if provided
+        if start_date or end_date:
+            try:
+                if start_date:
+                    start_date = timezone.make_aware(
+                        datetime.strptime(start_date, '%Y-%m-%d'))
+                if end_date:
+                    end_date = timezone.make_aware(
+                        datetime.strptime(end_date, '%Y-%m-%d'))
+            except ValueError:
                 return Response(
-                    {'error': 'Invalid role. Must be "admin" or "regular".'},
+                    {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            dashboard_data = get_admin_dashboard_data(role=role)
+        # Validate parameters regardless of precedence
+        # Validate role parameter if provided
+        if role and role not in ['admin', 'regular']:
+            return Response(
+                {'error': 'Invalid role. Must be "admin" or "regular".'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate filter parameter if provided
+        if filter_type and filter_type not in ['all', 'admin_only', 'regular_users', 'active_only', 'me']:
+            return Response(
+                {'error': 'Invalid filter. Must be one of: all, admin_only, regular_users, active_only, me.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate user_ids format if provided
+        if user_ids is not None:
+            try:
+                user_ids = [int(uid) for uid in user_ids]
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid user_ids format. Must be integers.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Validate that users exist (only if user_ids is not empty)
+            if user_ids:  # Empty list means no users selected
+                users = User.objects.filter(id__in=user_ids)
+                if len(users) != len(user_ids):
+                    return Response(
+                        {'error': 'One or more user IDs not found.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+        # Parameter precedence: me or filter=me > user_ids > role/filter_type
+        if (me and me.lower() == 'true') or filter_type == 'me':
+            dashboard_data = get_admin_dashboard_data(me=request.user, start_date=start_date, end_date=end_date)
+        elif user_ids:
+            # user_ids provided and not empty
+            dashboard_data = get_admin_dashboard_data(user_ids=user_ids, start_date=start_date, end_date=end_date)
+        else:
+            dashboard_data = get_admin_dashboard_data(role=role, filter_type=filter_type, start_date=start_date, end_date=end_date)
 
         serializer = self.get_serializer(dashboard_data)
         return Response(serializer.data)
@@ -374,13 +456,13 @@ class LoginTrendsView(generics.GenericAPIView):
                 name="start_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="Start date for filtering (format: YYYY-MM-DD)"
+                description="Start date for filtering (YYYY-MM-DD)"
             ),
             OpenApiParameter(
                 name="end_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="End date for filtering (format: YYYY-MM-DD)"
+                description="End date for filtering (YYYY-MM-DD)"
             ),
             OpenApiParameter(
                 name="user_ids[]",
@@ -590,13 +672,13 @@ class LoginComparisonView(generics.GenericAPIView):
                 name="start_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="Start date for filtering (format: YYYY-MM-DD)"
+                description="Start date for filtering (YYYY-MM-DD)"
             ),
             OpenApiParameter(
                 name="end_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="End date for filtering (format: YYYY-MM-DD)"
+                description="End date for filtering (YYYY-MM-DD)"
             ),
             OpenApiParameter(
                 name="user_ids[]",
@@ -1003,13 +1085,13 @@ class AdminChartsView(generics.GenericAPIView):
                 name="start_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="Start date for filtering (format: YYYY-MM-DD)"
+                description="Start date for filtering (YYYY-MM-DD)"
             ),
             OpenApiParameter(
                 name="end_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="End date for filtering (format: YYYY-MM-DD)"
+                description="End date for filtering (YYYY-MM-DD)"
             )
         ],
         responses={
