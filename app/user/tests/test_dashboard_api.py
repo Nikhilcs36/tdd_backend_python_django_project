@@ -602,14 +602,18 @@ class DashboardAPITests(TestCase):
 
     # Test Cycle 1.2: date parameters
     def test_admin_dashboard_accepts_date_parameters(self):
-        """Test that admin dashboard endpoint accepts start_date and end_date parameters."""
+        """
+        Test that admin dashboard endpoint accepts start_date
+        and end_date parameters.
+        """
         self.client.force_authenticate(user=self.admin_user)
         url = reverse('user:admin-dashboard')
 
         start_date = (timezone.now() - timedelta(days=10)).strftime('%Y-%m-%d')
         end_date = timezone.now().strftime('%Y-%m-%d')
 
-        response = self.client.get(url, {'start_date': start_date, 'end_date': end_date})
+        response = self.client.get(
+            url, {'start_date': start_date, 'end_date': end_date})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('total_users', response.data)
@@ -620,13 +624,17 @@ class DashboardAPITests(TestCase):
         self.client.force_authenticate(user=self.admin_user)
         url = reverse('user:admin-dashboard')
 
-        response = self.client.get(url, {'start_date': 'invalid-date', 'end_date': '2025-12-31'})
+        response = self.client.get(
+            url, {'start_date': 'invalid-date', 'end_date': '2025-12-31'})
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data, {'error': 'Invalid date format. Use YYYY-MM-DD format.'})
+        self.assertEqual(
+            response.data, {'error':
+                            'Invalid date format. Use YYYY-MM-DD format.'})
 
     def test_admin_dashboard_handles_partial_date_range(self):
-        """Test that admin dashboard handles partial date ranges (only start or only end)."""
+        """Test that admin dashboard handles partial date ranges
+        (only start or only end)."""
         self.client.force_authenticate(user=self.admin_user)
         url = reverse('user:admin-dashboard')
 
@@ -647,7 +655,12 @@ class DashboardAPITests(TestCase):
         url = reverse('user:admin-dashboard')
 
         # Test with valid filter values
-        for filter_value in ['admin_only', 'regular_users', 'active_only', 'me']:
+        for filter_value in [
+            'admin_only',
+            'regular_users',
+            'active_only',
+            'me'
+        ]:
             response = self.client.get(url, {'filter': filter_value})
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.assertIn('total_users', response.data)
@@ -711,7 +724,8 @@ class DashboardAPITests(TestCase):
         self.assertEqual(response.data['total_logins'], 4)
         # Should show only activities from user2 and user3
         for activity in response.data['login_activity']:
-            self.assertIn(activity['username'], [user2.username, user3.username])
+            self.assertIn(activity['username'], [
+                          user2.username, user3.username])
 
     def test_admin_dashboard_empty_user_ids_returns_no_data(self):
         """Test that empty user_ids array returns no user data."""
@@ -725,10 +739,14 @@ class DashboardAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Currently falls back to all users due to test client behavior
         # Should ideally return 0 users for empty user_ids
-        self.assertEqual(response.data['total_users'], 2)  # admin + regular user
+        # admin + regular user
+        self.assertEqual(response.data['total_users'], 2)
 
     def test_admin_dashboard_user_ids_override_role_filter(self):
-        """Test that user_ids parameter takes precedence over role parameter."""
+        """
+        Test that user_ids parameter takes precedence
+        over role parameter.
+        """
         # Create an admin user (use different email to avoid conflict)
         admin_user = User.objects.create_superuser(
             username='testadmin2',
@@ -772,7 +790,10 @@ class DashboardAPITests(TestCase):
 
     # Test Cycle 2.2: Date range filtering
     def test_admin_dashboard_date_range_filters_login_activities(self):
-        """Test that date ranges correctly filter login activities and counts."""
+        """
+        Test that date ranges correctly filter
+        login activities and counts.
+        """
         # Clear existing activities
         LoginActivity.objects.filter(user=self.user).delete()
 
@@ -787,7 +808,8 @@ class DashboardAPITests(TestCase):
                 user_agent=f'Browser {i+1}',
                 success=True
             )
-            activity.timestamp = base_time - timedelta(days=i+1)  # 1-3 days ago
+            activity.timestamp = base_time - \
+                timedelta(days=i+1)  # 1-3 days ago
             activity.save()
 
         # Outside date range (should not be counted)
@@ -798,7 +820,8 @@ class DashboardAPITests(TestCase):
                 user_agent=f'Browser {i+1}',
                 success=True
             )
-            activity.timestamp = base_time - timedelta(days=i+10)  # 10-11 days ago
+            activity.timestamp = base_time - \
+                timedelta(days=i+10)  # 10-11 days ago
             activity.save()
 
         self.client.force_authenticate(user=self.admin_user)
@@ -808,7 +831,8 @@ class DashboardAPITests(TestCase):
         start_date = (base_time - timedelta(days=5)).strftime('%Y-%m-%d')
         end_date = base_time.strftime('%Y-%m-%d')
 
-        response = self.client.get(url, {'start_date': start_date, 'end_date': end_date})
+        response = self.client.get(
+            url, {'start_date': start_date, 'end_date': end_date})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Should show 3 total logins within the date range
@@ -817,7 +841,10 @@ class DashboardAPITests(TestCase):
         self.assertEqual(len(response.data['login_activity']), 3)
 
     def test_admin_dashboard_partial_date_ranges_work(self):
-        """Test that partial date ranges (start only, end only) work correctly."""
+        """
+        Test that partial date ranges (start only, end only)
+        work correctly.
+        """
         # Clear existing activities
         LoginActivity.objects.filter(user=self.user).delete()
 
@@ -832,7 +859,8 @@ class DashboardAPITests(TestCase):
                 user_agent=f'Browser {i+1}',
                 success=True
             )
-            activity.timestamp = base_time - timedelta(days=i*2)  # 0, 2, 4, 6, 8 days ago
+            activity.timestamp = base_time - \
+                timedelta(days=i*2)  # 0, 2, 4, 6, 8 days ago
             activity.save()
             activities.append(activity)
 
@@ -923,7 +951,10 @@ class DashboardAPITests(TestCase):
 
     # Test Cycle 2.3: Filter type logic
     def test_admin_dashboard_filter_admin_only(self):
-        """Test that filter=admin_only shows only admin users and their activities."""
+        """
+        Test that filter=admin_only shows only admin users
+        and their activities.
+        """
         # Create additional users with different roles
         admin_user2 = User.objects.create_superuser(
             username='adminuser2',
@@ -937,7 +968,8 @@ class DashboardAPITests(TestCase):
         )
 
         # Clear existing activities
-        LoginActivity.objects.filter(user__in=[self.admin_user, admin_user2, regular_user]).delete()
+        LoginActivity.objects.filter(
+            user__in=[self.admin_user, admin_user2, regular_user]).delete()
 
         # Create activities for each user type
         # Admin user 1: 2 activities
@@ -1008,7 +1040,8 @@ class DashboardAPITests(TestCase):
         )
 
         # Clear existing activities
-        LoginActivity.objects.filter(user__in=[admin_user, regular_user1, regular_user2]).delete()
+        LoginActivity.objects.filter(
+            user__in=[admin_user, regular_user1, regular_user2]).delete()
 
         # Create activities: 2 for admin, 3 for regular1, 1 for regular2
         for i in range(2):
@@ -1064,7 +1097,8 @@ class DashboardAPITests(TestCase):
         )
 
         # Clear existing activities
-        LoginActivity.objects.filter(user__in=[active_user, inactive_user]).delete()
+        LoginActivity.objects.filter(
+            user__in=[active_user, inactive_user]).delete()
 
         # Create activities for both users
         for i in range(2):
@@ -1098,8 +1132,12 @@ class DashboardAPITests(TestCase):
         self.assertGreaterEqual(response.data['total_logins'], 2)
 
     def test_admin_dashboard_filter_me_shows_current_user_data(self):
-        """Test that filter=me shows only current authenticated admin user's data."""
-        # Create additional activities for other users to ensure filtering works
+        """
+        Test that filter=me shows only current authenticated
+        admin user's data.
+        """
+        # Create additional activities for other users to ensure
+        # filtering works
         other_admin = User.objects.create_superuser(
             username='otheradmin3',
             email='otheradmin3@example.com',

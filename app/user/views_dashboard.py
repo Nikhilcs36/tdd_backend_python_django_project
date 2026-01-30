@@ -281,23 +281,35 @@ class AdminDashboardView(generics.GenericAPIView):
                 name="start_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="Start date for filtering login activities (YYYY-MM-DD)"
+                description=(
+                    "Start date for filtering login activities "
+                    "(YYYY-MM-DD)"
+                ),
             ),
             OpenApiParameter(
                 name="end_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="End date for filtering login activities (YYYY-MM-DD)"
+                description=(
+                    "End date for filtering login activities "
+                    "(YYYY-MM-DD)"
+                ),
             ),
             OpenApiParameter(
                 name="filter",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
                 description=(
-                    "Filter users by type: 'all', 'admin_only', 'regular_users', "
-                    "'active_only', 'me'"
+                    "Filter users by type: 'all', 'admin_only',"
+                    " 'regular_users', 'active_only', 'me'"
                 ),
-                enum=["all", "admin_only", "regular_users", "active_only", "me"],
+                enum=[
+                    "all",
+                    "admin_only",
+                    "regular_users",
+                    "active_only",
+                    "me"
+                ],
                 required=False
             ),
             OpenApiParameter(
@@ -397,9 +409,19 @@ class AdminDashboardView(generics.GenericAPIView):
             )
 
         # Validate filter parameter if provided
-        if filter_type and filter_type not in ['all', 'admin_only', 'regular_users', 'active_only', 'me']:
+        if filter_type and filter_type not in [
+            'all',
+            'admin_only',
+            'regular_users',
+            'active_only',
+            'me'
+        ]:
             return Response(
-                {'error': 'Invalid filter. Must be one of: all, admin_only, regular_users, active_only, me.'},
+                {'error': (
+                    'Invalid filter. Must be one of:'
+                    'all, admin_only, regular_users, active_only, me.'
+                )
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -424,12 +446,19 @@ class AdminDashboardView(generics.GenericAPIView):
 
         # Parameter precedence: me or filter=me > user_ids > role/filter_type
         if (me and me.lower() == 'true') or filter_type == 'me':
-            dashboard_data = get_admin_dashboard_data(me=request.user, start_date=start_date, end_date=end_date)
+            dashboard_data = get_admin_dashboard_data(
+                me=request.user, start_date=start_date, end_date=end_date)
         elif user_ids:
             # user_ids provided and not empty
-            dashboard_data = get_admin_dashboard_data(user_ids=user_ids, start_date=start_date, end_date=end_date)
+            dashboard_data = get_admin_dashboard_data(
+                user_ids=user_ids, start_date=start_date, end_date=end_date)
         else:
-            dashboard_data = get_admin_dashboard_data(role=role, filter_type=filter_type, start_date=start_date, end_date=end_date)
+            dashboard_data = get_admin_dashboard_data(
+                role=role,
+                filter_type=filter_type,
+                start_date=start_date,
+                end_date=end_date
+            )
 
         serializer = self.get_serializer(dashboard_data)
         return Response(serializer.data)

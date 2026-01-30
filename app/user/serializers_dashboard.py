@@ -167,7 +167,8 @@ def get_user_stats(user, start_date=None, end_date=None):
         return {
             'total_logins': total_logins,
             'last_login': (
-                last_login.strftime('%Y-%m-%d %H:%M:%S') if last_login else None
+                last_login.strftime('%Y-%m-%d %H:%M:%S')
+                if last_login else None
             ),
             'weekly_data': weekly_data,
             'monthly_data': monthly_data,
@@ -186,7 +187,14 @@ def get_user_stats(user, start_date=None, end_date=None):
         }
 
 
-def get_admin_dashboard_data(role=None, me=None, user_ids=None, filter_type=None, start_date=None, end_date=None):
+def get_admin_dashboard_data(
+    role=None,
+    me=None,
+    user_ids=None,
+    filter_type=None,
+    start_date=None,
+    end_date=None
+):
     """Get comprehensive data for admin dashboard.
 
     Args:
@@ -265,8 +273,8 @@ def get_admin_dashboard_data(role=None, me=None, user_ids=None, filter_type=None
             .select_related('user') \
             .order_by('-timestamp')[:10]
 
-    # User growth by month (filtered by role, user_ids, filter_type, or single user)
-    # Note: User growth is not affected by date filtering as it shows user registration dates
+    # User growth by month (filtered by role, user_ids, filter_type, or single user)  # noqa: E501
+    # Note: User growth is not affected by date filtering as it shows user registration dates  # noqa: E501
     user_growth = defaultdict(int)
     for user in users:
         join_month = user.date_joined.strftime('%Y-%m')
