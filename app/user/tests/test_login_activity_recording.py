@@ -171,3 +171,55 @@ class LoginActivityRecordingTests(TestCase):
         # Should include user growth data by month
         self.assertIsInstance(response.data['user_growth'], dict)
         self.assertTrue(len(response.data['user_growth']) > 0)
+
+    def test_failed_login_attempts_logged_for_nonexistent_users(self):
+        """Test that failed login attempts are logged even for non-existent users."""
+        # Attempt login with non-existent email
+        url = reverse('user:token')
+        data = {
+            'email': 'nonexistent@example.com',
+            'password': 'wrongpassword'
+        }
+        response = self.client.post(url, data, format='json')
+
+        # Should return 400 for invalid credentials (serializer validation error)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Should have created a failed login activity record
+        failed_activity = LoginActivity.objects.filter(
+            attempted_username='nonexistent@example.com',
+            success=False
+        ).first()
+        self.assertIsNotNone(failed_activity)
+        self.assertIsNone(failed_activity.user)  # No associated user
+        self.assertEqual(failed_activity.attempted_username, 'nonexistent@example.com')
+
+    def test_admin_dashboard_includes_failed_login_attempts(self):
+        """Test that admin dashboard includes failed login attempts in login_activity."""
+        # Create a failed login attempt for non-existent user
+        LoginActivity.objects.create(
+            user=None,
+            attempted_username='failed@example.com',
+            ip_address='192.168.1.100',
+            user_agent='Test Browser',
+            success=False,
+            timestamp=timezone.now()
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        url = reverse('user:admin-dashboard')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check that login_activity includes the failed attempt
+        login_activities = response.data['login_activity']
+        failed_activities = [activity for activity in login_activities if not activity['success']]
+        self.assertTrue(len(failed_activities) > 0)
+
+        # Verify the failed activity has correct structure
+        failed_activity = failed_activities[0]
+        self.assertIn('username', failed_activity)
+        self.assertIn('success', failed_activity)
+        self.assertFalse(failed_activity['success'])
+        self.assertEqual(failed_activity['username'], 'failed@example.com')

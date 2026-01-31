@@ -231,18 +231,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Get user agent from request
         user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
 
-        # For failed logins, we need to find the user by email
-        if not user and not success:
-            email = self.initial_data.get('email')
-            try:
-                user = get_user_model().objects.get(email=email)
-            except get_user_model().DoesNotExist:
-                # If user doesn't exist, we can't create a login activity
-                return
+        # For failed logins, get the attempted username/email
+        attempted_username = None
+        if not success:
+            attempted_username = self.initial_data.get('email')
 
         # Create login activity record
         LoginActivity.objects.create(
-            user=user if user else None,
+            user=user,
+            attempted_username=attempted_username,
             ip_address=ip_address,
             user_agent=user_agent,
             success=success
