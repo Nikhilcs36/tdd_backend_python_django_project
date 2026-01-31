@@ -74,7 +74,15 @@ class LoginActivity(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='login_activities'
+        related_name='login_activities',
+        null=True,
+        blank=True
+    )
+    attempted_username = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Username/email attempted during login (for failed login attempts)"
     )
     timestamp = models.DateTimeField(auto_now_add=True)
     ip_address = models.GenericIPAddressField()
@@ -87,7 +95,8 @@ class LoginActivity(models.Model):
         verbose_name_plural = 'Login Activities'
 
     def __str__(self):
-        return f"LoginActivity for {self.user.username} at {self.timestamp}"
+        username = self.user.username if self.user else self.attempted_username or 'Unknown'
+        return f"LoginActivity for {username} at {self.timestamp}"
 
     def save(self, *args, **kwargs):
         """Override save to update user statistics on successful login"""

@@ -12,7 +12,7 @@ class LoginActivitySerializer(serializers.ModelSerializer):
     """Serializer for login activity data."""
 
     timestamp = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
-    username = serializers.CharField(source='user.username', read_only=True)
+    username = serializers.SerializerMethodField()
 
     class Meta:
         model = LoginActivity
@@ -21,6 +21,12 @@ class LoginActivitySerializer(serializers.ModelSerializer):
             'user_agent', 'success'
         )
         read_only_fields = fields
+
+    def get_username(self, obj):
+        """Get username, handling cases where user is None."""
+        if obj.user:
+            return obj.user.username
+        return obj.attempted_username or 'Unknown'
 
 
 class UserStatsSerializer(serializers.Serializer):
