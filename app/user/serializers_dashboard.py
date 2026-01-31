@@ -1,5 +1,6 @@
 """Serializers for dashboard API endpoints with TypeScript-friendly responses."""  # noqa: E501
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 from core.models import LoginActivity, User
 from datetime import timedelta
 from django.utils import timezone
@@ -22,6 +23,7 @@ class LoginActivitySerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
+    @extend_schema_field(str)
     def get_username(self, obj):
         """Get username, handling cases where user is None."""
         if obj.user:
