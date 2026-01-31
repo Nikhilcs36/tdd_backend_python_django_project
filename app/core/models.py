@@ -82,7 +82,10 @@ class LoginActivity(models.Model):
         max_length=255,
         null=True,
         blank=True,
-        help_text="Username/email attempted during login (for failed login attempts)"
+        help_text=(
+            "Username/email attempted during login"
+            "(for failed login attempts)"
+        )
     )
     timestamp = models.DateTimeField(auto_now_add=True)
     ip_address = models.GenericIPAddressField()
@@ -95,7 +98,11 @@ class LoginActivity(models.Model):
         verbose_name_plural = 'Login Activities'
 
     def __str__(self):
-        username = self.user.username if self.user else self.attempted_username or 'Unknown'
+        username = (
+            self.user.username
+            if self.user
+            else self.attempted_username or 'Unknown'
+        )
         return f"LoginActivity for {username} at {self.timestamp}"
 
     def save(self, *args, **kwargs):

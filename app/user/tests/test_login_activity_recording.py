@@ -173,7 +173,9 @@ class LoginActivityRecordingTests(TestCase):
         self.assertTrue(len(response.data['user_growth']) > 0)
 
     def test_failed_login_attempts_logged_for_nonexistent_users(self):
-        """Test that failed login attempts are logged even for non-existent users."""
+        """
+        Test that failed login attempts are logged even for non-existent users.
+        """
         # Attempt login with non-existent email
         url = reverse('user:token')
         data = {
@@ -182,7 +184,8 @@ class LoginActivityRecordingTests(TestCase):
         }
         response = self.client.post(url, data, format='json')
 
-        # Should return 400 for invalid credentials (serializer validation error)
+        # Should return 400 for invalid credentials
+        # (serializer validation error)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
         # Should have created a failed login activity record
@@ -192,10 +195,14 @@ class LoginActivityRecordingTests(TestCase):
         ).first()
         self.assertIsNotNone(failed_activity)
         self.assertIsNone(failed_activity.user)  # No associated user
-        self.assertEqual(failed_activity.attempted_username, 'nonexistent@example.com')
+        self.assertEqual(failed_activity.attempted_username,
+                         'nonexistent@example.com')
 
     def test_admin_dashboard_includes_failed_login_attempts(self):
-        """Test that admin dashboard includes failed login attempts in login_activity."""
+        """
+        Test that admin dashboard includes failed login attempts
+        in login_activity.
+        """
         # Create a failed login attempt for non-existent user
         LoginActivity.objects.create(
             user=None,
@@ -214,7 +221,10 @@ class LoginActivityRecordingTests(TestCase):
 
         # Check that login_activity includes the failed attempt
         login_activities = response.data['login_activity']
-        failed_activities = [activity for activity in login_activities if not activity['success']]
+        failed_activities = [
+            activity for activity in login_activities
+            if not activity['success']
+        ]
         self.assertTrue(len(failed_activities) > 0)
 
         # Verify the failed activity has correct structure
