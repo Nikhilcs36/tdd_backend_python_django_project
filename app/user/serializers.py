@@ -196,8 +196,16 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         )
 
         if not user:
-            # Create failed login activity record
-            self._create_login_activity(None, False)
+            # Try to find existing user for failed login logging
+            email = attrs.get('email')
+            try:
+                existing_user = get_user_model().objects.get(email=email)
+                # Log failed attempt for existing user
+                self._create_login_activity(existing_user, False)
+            except get_user_model().DoesNotExist:
+                # Don't log for truly non-existent users
+                # (as per our simplified approach)
+                pass
             self.fail('no_active_account')
 
         refresh = self.get_token(user)
@@ -231,19 +239,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Get user agent from request
         user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
 
-        # For failed logins, get the attempted username/email
-        attempted_username = None
-        if not success:
-            attempted_username = self.initial_data.get('email')
-
-        # Create login activity record
-        LoginActivity.objects.create(
-            user=user,
-            attempted_username=attempted_username,
-            ip_address=ip_address,
-            user_agent=user_agent,
-            success=success
-        )
+        # Only create login activity for existing users
+        # (user will be None for non-existent users, so we skip logging)
+        if user:
+            LoginActivity.objects.create(
+                user=user,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                success=success
+            )
 
     def _get_client_ip(self, request):
         """Get client IP address from request."""

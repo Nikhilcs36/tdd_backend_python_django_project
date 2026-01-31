@@ -172,14 +172,15 @@ class LoginActivityRecordingTests(TestCase):
         self.assertIsInstance(response.data['user_growth'], dict)
         self.assertTrue(len(response.data['user_growth']) > 0)
 
-    def test_failed_login_attempts_logged_for_nonexistent_users(self):
+    def test_failed_login_attempts_logged_for_existing_users(self):
         """
-        Test that failed login attempts are logged even for non-existent users.
+        Test that failed login attempts are logged for existing
+        users with wrong password.
         """
-        # Attempt login with non-existent email
+        # Attempt login with existing user but wrong password
         url = reverse('user:token')
         data = {
-            'email': 'nonexistent@example.com',
+            'email': 'test@example.com',
             'password': 'wrongpassword'
         }
         response = self.client.post(url, data, format='json')
@@ -189,24 +190,23 @@ class LoginActivityRecordingTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
         # Should have created a failed login activity record
+        # linked to the existing user
         failed_activity = LoginActivity.objects.filter(
-            attempted_username='nonexistent@example.com',
+            user=self.user,
             success=False
-        ).first()
+        ).last()  # Get the most recent failed attempt
         self.assertIsNotNone(failed_activity)
-        self.assertIsNone(failed_activity.user)  # No associated user
-        self.assertEqual(failed_activity.attempted_username,
-                         'nonexistent@example.com')
+        self.assertEqual(failed_activity.user, self.user)
+        self.assertFalse(failed_activity.success)
 
     def test_admin_dashboard_includes_failed_login_attempts(self):
         """
         Test that admin dashboard includes failed login attempts
         in login_activity.
         """
-        # Create a failed login attempt for non-existent user
+        # Create a failed login attempt for existing user
         LoginActivity.objects.create(
-            user=None,
-            attempted_username='failed@example.com',
+            user=self.user,
             ip_address='192.168.1.100',
             user_agent='Test Browser',
             success=False,
@@ -232,4 +232,44 @@ class LoginActivityRecordingTests(TestCase):
         self.assertIn('username', failed_activity)
         self.assertIn('success', failed_activity)
         self.assertFalse(failed_activity['success'])
-        self.assertEqual(failed_activity['username'], 'failed@example.com')
+        self.assertEqual(failed_activity['username'], 'testuser')
+
+    def test_failed_login_via_api_appears_in_admin_dashboard(self):
+        """
+        Test that failed login attempts made via API appear in admin dashboard.
+        This is an integration test to verify end-to-end functionality.
+        """
+        # Attempt failed login via API
+        url = reverse('user:token')
+        data = {
+            'email': 'test@example.com',
+            'password': 'wrongpassword'
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Now check admin dashboard includes this failed attempt
+        self.client.force_authenticate(user=self.admin_user)
+        dashboard_url = reverse('user:admin-dashboard')
+        response = self.client.get(dashboard_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Verify failed login appears in dashboard
+        login_activities = response.data['login_activity']
+        failed_activities = [
+            activity for activity in login_activities
+            if not activity['success'] and activity['username'] == 'testuser'
+        ]
+        self.assertTrue(
+            failed_activities,
+            "Failed login attempt should appear in admin dashboard",
+        )
+
+        # Verify the structure
+        failed_activity = failed_activities[0]
+        self.assertEqual(failed_activity['username'], 'testuser')
+        self.assertFalse(failed_activity['success'])
+        self.assertIn('timestamp', failed_activity)
+        self.assertIn('ip_address', failed_activity)
+        self.assertIn('user_agent', failed_activity)
