@@ -335,6 +335,8 @@ class AdminDashboardView(generics.GenericAPIView):
                     "total_users": 150,
                     "active_users": 125,
                     "total_logins": 2540,
+                    "total_successful_logins": 2400,
+                    "total_failed_logins": 140,
                     "login_activity": [
                         {
                             "id": 123,

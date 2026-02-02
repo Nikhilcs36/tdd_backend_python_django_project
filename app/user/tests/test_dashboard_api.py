@@ -1263,3 +1263,60 @@ class DashboardAPITests(TestCase):
             5,
             "login_activity should include all recent login attempts"
         )
+
+    def test_admin_dashboard_includes_total_successful_and_failed_logins(self):
+        """
+        Test that admin dashboard includes successful/failed login counts.
+        """
+        # Clear existing activities for clean test
+        LoginActivity.objects.filter(user=self.user).delete()
+
+        # Create 4 successful login activities
+        for i in range(4):
+            activity = LoginActivity.objects.create(
+                user=self.user,
+                ip_address=f'192.168.1.{i+1}',
+                user_agent=f'Success Browser {i+1}',
+                success=True
+            )
+            activity.timestamp = timezone.now() - timedelta(days=i)
+            activity.save()
+
+        # Create 3 failed login activities
+        for i in range(3):
+            activity = LoginActivity.objects.create(
+                user=self.user,
+                ip_address=f'192.168.2.{i+1}',
+                user_agent=f'Failed Browser {i+1}',
+                success=False
+            )
+            activity.timestamp = timezone.now() - timedelta(days=i+5)
+            activity.save()
+
+        self.client.force_authenticate(user=self.admin_user)
+        url = reverse('user:admin-dashboard')
+
+        # Test admin dashboard with user_ids filter
+        # to only show our test user's data
+        response = self.client.get(url, {'user_ids[]': [self.user.id]})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Should include the new fields
+        self.assertIn('total_successful_logins', response.data)
+        self.assertIn('total_failed_logins', response.data)
+
+        # Verify data types
+        self.assertIsInstance(response.data['total_successful_logins'], int)
+        self.assertIsInstance(response.data['total_failed_logins'], int)
+
+        # Verify correct counts
+        self.assertEqual(response.data['total_successful_logins'], 4)
+        self.assertEqual(response.data['total_failed_logins'], 3)  # noqa: E501
+
+        # Verify total_logins equals sum of successful + failed
+        self.assertEqual(
+            response.data['total_logins'],
+            response.data['total_successful_logins']
+            + response.data['total_failed_logins']
+        )

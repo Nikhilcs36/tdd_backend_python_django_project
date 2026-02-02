@@ -39,6 +39,8 @@ class AdminDashboardSerializer(serializers.Serializer):
     total_users = serializers.IntegerField()
     active_users = serializers.IntegerField()
     total_logins = serializers.IntegerField()
+    total_successful_logins = serializers.IntegerField()
+    total_failed_logins = serializers.IntegerField()
     login_activity = LoginActivitySerializer(many=True)
     user_growth = serializers.JSONField()
 
@@ -261,6 +263,14 @@ def get_admin_dashboard_data(
     active_users = users.filter(is_active=True).count()
     total_logins = LoginActivity.objects.filter(login_filter).count()
 
+    # Calculate successful and failed login counts
+    total_successful_logins = LoginActivity.objects.filter(
+        login_filter & Q(success=True)
+    ).count()
+    total_failed_logins = LoginActivity.objects.filter(
+        login_filter & Q(success=False)
+    ).count()
+
     # Recent login activity (last 10 activities for filtered users)
     if me or role or user_ids or filter_type:
         login_activity = LoginActivity.objects.filter(login_filter) \
@@ -282,6 +292,8 @@ def get_admin_dashboard_data(
         'total_users': total_users,
         'active_users': active_users,
         'total_logins': total_logins,
+        'total_successful_logins': total_successful_logins,
+        'total_failed_logins': total_failed_logins,
         'login_activity': login_activity,
         'user_growth': dict(user_growth)
     }
