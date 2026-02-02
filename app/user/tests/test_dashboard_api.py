@@ -1199,7 +1199,9 @@ class DashboardAPITests(TestCase):
         self.assertIn('error', response.data)
 
     def test_admin_dashboard_total_logins_includes_failed_attempts(self):
-        """Test that total_logins counts ALL login attempts (successful + failed)."""
+        """
+        Test that total_logins counts ALL login attempts (successful + failed).
+        """
         # Clear existing activities for clean test
         LoginActivity.objects.filter(user=self.user).delete()
 
@@ -1232,7 +1234,8 @@ class DashboardAPITests(TestCase):
         self.client.force_authenticate(user=self.admin_user)
         url = reverse('user:admin-dashboard')
 
-        # Test admin dashboard with user_ids filter to only show our test user's data
+        # Test admin dashboard with user_ids filter to only show
+        # our test user's data
         response = self.client.get(url, {'user_ids[]': [self.user.id]})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1240,12 +1243,23 @@ class DashboardAPITests(TestCase):
         # total_users should be 1 (only our test user)
         self.assertEqual(response.data['total_users'], 1)
 
-        # total_logins should include ALL login attempts (successful + failed)
-        # Currently this will FAIL because the code only counts successful logins
-        self.assertEqual(response.data['total_logins'], 5,
-                        "total_logins should count ALL login attempts, not just successful ones")
+        # total_logins should include ALL login attempts
+        # (successful + failed)
+        # Currently this will FAIL because the code only counts
+        # successful logins
+        self.assertEqual(
+            response.data['total_logins'],
+            5,
+            (
+                "total_logins should count ALL login attempts, "
+                "not just successful ones"
+            ),
+        )
 
         # login_activity should include both successful and failed attempts
         login_activity_count = len(response.data['login_activity'])
-        self.assertGreaterEqual(login_activity_count, 5,
-                               "login_activity should include all recent login attempts")
+        self.assertGreaterEqual(
+            login_activity_count,
+            5,
+            "login_activity should include all recent login attempts"
+        )
