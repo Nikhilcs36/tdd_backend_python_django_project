@@ -1077,8 +1077,9 @@ class DashboardAPITests(TestCase):
         # Should show only regular users (including self.user from setUp)
         # Total regular users: self.user + regular_user1 + regular_user2 = 3
         self.assertEqual(response.data['total_users'], 3)
-        # Should show only regular user logins (setUp user has 5 + 3 + 1 = 9)
-        self.assertEqual(response.data['total_logins'], 9)
+        # Should show only regular user logins (setUp user has 7 + 3 + 1 = 11)
+        # 7 from setUp user (5 successful + 2 failed) + 3 + 1 = 11 total
+        self.assertEqual(response.data['total_logins'], 11)
 
     def test_admin_dashboard_filter_active_only(self):
         """Test that filter=active_only shows only active users."""
@@ -1196,3 +1197,55 @@ class DashboardAPITests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('error', response.data)
+
+    def test_admin_dashboard_total_logins_includes_failed_attempts(self):
+        """Test that total_logins counts ALL login attempts (successful + failed)."""
+        # Clear existing activities for clean test
+        LoginActivity.objects.filter(user=self.user).delete()
+
+        # Create 3 successful login activities
+        for i in range(3):
+            activity = LoginActivity.objects.create(
+                user=self.user,
+                ip_address=f'192.168.1.{i+1}',
+                user_agent=f'Success Browser {i+1}',
+                success=True
+            )
+            activity.timestamp = timezone.now() - timedelta(days=i)
+            activity.save()
+
+        # Create 2 failed login activities
+        for i in range(2):
+            activity = LoginActivity.objects.create(
+                user=self.user,
+                ip_address=f'192.168.2.{i+1}',
+                user_agent=f'Failed Browser {i+1}',
+                success=False
+            )
+            activity.timestamp = timezone.now() - timedelta(days=i+5)
+            activity.save()
+
+        # Verify we have 5 total activities (3 successful + 2 failed)
+        total_activities = LoginActivity.objects.filter(user=self.user).count()
+        self.assertEqual(total_activities, 5)
+
+        self.client.force_authenticate(user=self.admin_user)
+        url = reverse('user:admin-dashboard')
+
+        # Test admin dashboard with user_ids filter to only show our test user's data
+        response = self.client.get(url, {'user_ids[]': [self.user.id]})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # total_users should be 1 (only our test user)
+        self.assertEqual(response.data['total_users'], 1)
+
+        # total_logins should include ALL login attempts (successful + failed)
+        # Currently this will FAIL because the code only counts successful logins
+        self.assertEqual(response.data['total_logins'], 5,
+                        "total_logins should count ALL login attempts, not just successful ones")
+
+        # login_activity should include both successful and failed attempts
+        login_activity_count = len(response.data['login_activity'])
+        self.assertGreaterEqual(login_activity_count, 5,
+                               "login_activity should include all recent login attempts")
