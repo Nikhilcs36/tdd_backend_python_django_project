@@ -259,9 +259,7 @@ def get_admin_dashboard_data(
     # User statistics
     total_users = users.count()
     active_users = users.filter(is_active=True).count()
-    total_logins = LoginActivity.objects.filter(
-        login_filter & Q(success=True)
-    ).count()
+    total_logins = LoginActivity.objects.filter(login_filter).count()
 
     # Recent login activity (last 10 activities for filtered users)
     if me or role or user_ids or filter_type:
