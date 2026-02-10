@@ -71,4 +71,18 @@ urlpatterns = [
         AdminUsersStatsView.as_view(),
         name='admin-users-stats'
     ),
+    # Email verification endpoints
+    path('verify-email/<str:token>/',
+         views.verify_email,
+         name='verify-email'),
+    path('resend-verification/',
+         views.resend_verification_email,
+         name='resend-verification'),
+    # Password reset endpoints
+    path('password-reset/',
+         views.request_password_reset,
+         name='request-password-reset'),
+    path('reset-password/<str:token>/',
+         views.reset_password,
+         name='reset-password'),
 ]

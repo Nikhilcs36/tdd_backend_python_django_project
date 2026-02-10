@@ -48,6 +48,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_login_timestamp = models.DateTimeField(null=True, blank=True)
     weekly_logins = models.JSONField(default=dict, blank=True)
     monthly_logins = models.JSONField(default=dict, blank=True)
+    # Email verification fields
+    email_verified = models.BooleanField(default=False)
+    verification_token = models.CharField(
+        max_length=100, blank=True, null=True)
+    verification_token_created_at = models.DateTimeField(null=True, blank=True)
+    password_reset_token = models.CharField(
+        max_length=100, blank=True, null=True)
+    password_reset_token_created_at = models.DateTimeField(
+        null=True, blank=True)
 
     objects = UserManager()
 
@@ -67,6 +76,61 @@ class User(AbstractBaseUser, PermissionsMixin):
             if self.image.storage.exists(self.image.name):
                 self.image.storage.delete(self.image.name)
         super().delete(*args, **kwargs)
+
+    def generate_verification_token(self):
+        """Generate a verification token for email verification"""
+        import secrets
+        self.verification_token = secrets.token_urlsafe(32)
+        self.verification_token_created_at = timezone.now()
+        self.save()
+        return self.verification_token
+
+    def verify_email(self, token):
+        """Verify email with token"""
+        if self.verification_token == token:
+            self.email_verified = True
+            self.verification_token = None
+            self.verification_token_created_at = None
+            self.save()
+            return True
+        return False
+
+    def is_verification_token_expired(self):
+        """Check if verification token is expired (24 hours)"""
+        if not self.verification_token_created_at:
+            return True
+        from datetime import timedelta
+        expiration_time = self.verification_token_created_at + \
+            timedelta(hours=24)
+        return timezone.now() > expiration_time
+
+    def generate_password_reset_token(self):
+        """Generate a password reset token"""
+        import secrets
+        self.password_reset_token = secrets.token_urlsafe(32)
+        self.password_reset_token_created_at = timezone.now()
+        self.save()
+        return self.password_reset_token
+
+    def is_password_reset_token_expired(self):
+        """Check if password reset token is expired (1 hour)"""
+        if not self.password_reset_token_created_at:
+            return True
+        from datetime import timedelta
+        expiration_time = self.password_reset_token_created_at + \
+            timedelta(hours=1)
+        return timezone.now() > expiration_time
+
+    def reset_password(self, token, new_password):
+        """Reset password with token"""
+        if (self.password_reset_token == token and
+                not self.is_password_reset_token_expired()):
+            self.set_password(new_password)
+            self.password_reset_token = None
+            self.password_reset_token_created_at = None
+            self.save()
+            return True
+        return False
 
 
 class LoginActivity(models.Model):

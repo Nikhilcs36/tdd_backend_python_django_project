@@ -208,6 +208,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 pass
             self.fail('no_active_account')
 
+        # Check if email is verified
+        if not user.email_verified:
+            # Log failed attempt (unverified email)
+            self._create_login_activity(user, False)
+            raise serializers.ValidationError(
+                {'detail': 'email_not_verified'}
+            )
+
         refresh = self.get_token(user)
 
         data = {}
@@ -221,6 +229,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Add privilege information for frontend role-based access control
         data.update({'is_staff': user.is_staff})
         data.update({'is_superuser': user.is_superuser})
+        # Add email verification status
+        data.update({'email_verified': user.email_verified})
 
         # Create successful login activity record
         self._create_login_activity(user, True)
