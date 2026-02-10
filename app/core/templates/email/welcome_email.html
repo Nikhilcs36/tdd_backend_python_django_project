@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Our Platform!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #4CAF50;
+        }
+        .content {
+            padding: 20px;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid #eee;
+            margin-top: 20px;
+        }
+        .highlight {
+            background-color: #e8f5e8;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #4CAF50;
+        }
+        .features {
+            margin: 20px 0;
+        }
+        .feature-item {
+            margin: 10px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        .feature-item:before {
+            content: "✓";
+            color: #4CAF50;
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to Our Platform!</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{ user.username }},</p>
+            
+            <div class="highlight">
+                <p><strong>🎉 Congratulations! Your email has been successfully verified.</strong></p>
+                <p>You now have full access to all features of our platform.</p>
+            </div>
+            
+            <p>We're excited to have you on board! Here's what you can do now:</p>
+            
+            <div class="features">
+                <div class="feature-item">Access your personalized dashboard</div>
+                <div class="feature-item">Update your profile information</div>
+                <div class="feature-item">Connect with other users</div>
+                <div class="feature-item">Enjoy all platform features</div>
+            </div>
+            
+            <p>You can log in to your account using your credentials:</p>
+            <ul>
+                <li><strong>Username:</strong> {{ user.username }}</li>
+                <li><strong>Email:</strong> {{ user.email }}</li>
+            </ul>
+            
+            <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
+            
+            <p>Thank you for joining our community!</p>
+            
+            <p>Best regards,<br>
+            The Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated welcome message.</p>
+            <p>&copy; {% now "Y" %} All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

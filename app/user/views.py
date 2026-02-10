@@ -15,10 +15,39 @@ from core.models import User
 from .permissions import IsSuperUser, IsStaffOrSuperUser
 from .pagination import UserPagination
 
+from rest_framework.decorators import api_view
+from core.email_service import (
+    send_verification_email,
+    send_welcome_email,
+    build_verification_url,
+    build_password_reset_url,
+    send_password_reset_email
+)
+
 
 class CreateUserView(generics.CreateAPIView):
     """Create a new user in the system."""
     serializer_class = UserSerializer
+
+    def perform_create(self, serializer):
+        """
+        Create user, generate verification token, and send verification email.
+        """
+        user = serializer.save()
+
+        # Generate verification token
+        token = user.generate_verification_token()
+
+        # Build verification URL
+        verification_url = build_verification_url(self.request, token)
+
+        # Send verification email
+        try:
+            send_verification_email(user, verification_url)
+        except Exception:
+            # Log error but don't fail registration
+            # The email verification can be resent later
+            pass
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -156,7 +185,8 @@ class UserListView(generics.ListAPIView):
     def get_serializer_context(self):
         """Add context to tell serializer to include role fields."""
         context = super().get_serializer_context()
-        context['include_roles'] = True  # Tell serializer to include role fields  # noqa: E501
+        # Tell serializer to include role fields
+        context['include_roles'] = True
         return context
 
 
@@ -194,3 +224,160 @@ class LogoutView(generics.GenericAPIView):
                 {'detail': 'refresh_token_not_valid'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+@api_view(['POST'])
+def verify_email(request, token):
+    """Verify user's email with token."""
+    try:
+        user = User.objects.get(verification_token=token)
+
+        # Check if token is expired
+        if user.is_verification_token_expired():
+            return Response(
+                {'error': 'Verification token has expired. '
+                 'Please request a new one.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify email
+        if user.verify_email(token):
+            # Send welcome email
+            send_welcome_email(user)
+            return Response(
+                {'message': 'Email verified successfully. '
+                 'You can now log in.'},
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {'error': 'Invalid verification token.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Invalid verification token.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['POST'])
+def resend_verification_email(request):
+    """Resend verification email."""
+    email = request.data.get('email')
+
+    if not email:
+        return Response(
+            {'error': 'Email address is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        user = User.objects.get(email=email)
+
+        if user.email_verified:
+            return Response(
+                {'message': 'Email is already verified.'},
+                status=status.HTTP_200_OK
+            )
+
+        # Generate new verification token
+        token = user.generate_verification_token()
+        verification_url = build_verification_url(request, token)
+
+        # Send verification email
+        send_verification_email(user, verification_url)
+
+        return Response(
+            {'message': 'Verification email sent successfully.'},
+            status=status.HTTP_200_OK
+        )
+    except User.DoesNotExist:
+        # Don't reveal if user exists or not for security
+        return Response(
+            {'message': 'If an account exists with this email, '
+             'a verification email has been sent.'},
+            status=status.HTTP_200_OK
+        )
+
+
+@api_view(['POST'])
+def request_password_reset(request):
+    """Request password reset for verified users."""
+    email = request.data.get('email')
+
+    if not email:
+        return Response(
+            {'error': 'Email address is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        user = User.objects.get(email=email)
+
+        # Only allow password reset for verified users
+        if not user.email_verified:
+            return Response(
+                {'error': 'Please verify your email before '
+                 'resetting password.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Generate password reset token
+        token = user.generate_password_reset_token()
+        reset_url = build_password_reset_url(request, token)
+
+        # Send password reset email
+        send_password_reset_email(user, reset_url)
+
+        return Response(
+            {'message': 'Password reset email sent successfully.'},
+            status=status.HTTP_200_OK
+        )
+    except User.DoesNotExist:
+        # Don't reveal if user exists or not for security
+        return Response(
+            {'message': 'If an account exists with this email, '
+             'a password reset email has been sent.'},
+            status=status.HTTP_200_OK
+        )
+
+
+@api_view(['POST'])
+def reset_password(request, token):
+    """Reset password with token."""
+    new_password = request.data.get('password')
+    password_repeat = request.data.get('passwordRepeat')
+
+    if not new_password or not password_repeat:
+        return Response(
+            {'error': 'Both password and passwordRepeat are required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if new_password != password_repeat:
+        return Response(
+            {'error': 'Passwords do not match.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        user = User.objects.get(password_reset_token=token)
+
+        # Reset password
+        if user.reset_password(token, new_password):
+            return Response(
+                {'message': 'Password reset successful. '
+                 'You can now login with your new password.'},
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {'error': 'Invalid or expired password reset token.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Invalid password reset token.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )

@@ -166,3 +166,18 @@ AUTHENTICATION_BACKENDS = [
 # Maximum upload size for images (in bytes)
 # 2MB
 MAX_UPLOAD_SIZE = 2 * 1024 * 1024
+
+# Email Configuration
+# For development: console backend
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# For production with Gmail SMTP (uncomment and configure):
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'your-email@gmail.com')
+# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'your-app-password')
+# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# Frontend URLs for email templates
+FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost:3000')

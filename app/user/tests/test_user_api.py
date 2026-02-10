@@ -300,7 +300,9 @@ class PublicUserApiTests(TestCase):
             'email': 'test@example.com',
             'password': 'Password123',
         }
-        User.objects.create_user(**user_details)
+        user = User.objects.create_user(**user_details)
+        user.email_verified = True
+        user.save()
 
         payload = {
             'email': user_details['email'],
@@ -331,7 +333,9 @@ class PublicUserApiTests(TestCase):
             'password': 'Password123',
             'is_staff': True
         }
-        User.objects.create_user(**user_details)
+        user = User.objects.create_user(**user_details)
+        user.email_verified = True
+        user.save()
 
         payload = {
             'email': user_details['email'],
@@ -361,7 +365,9 @@ class PublicUserApiTests(TestCase):
             'email': 'admin@example.com',
             'password': 'Password123',
         }
-        User.objects.create_superuser(**user_details)
+        user = User.objects.create_superuser(**user_details)
+        user.email_verified = True
+        user.save()
 
         payload = {
             'email': user_details['email'],
@@ -518,6 +524,8 @@ class PrivateUserApiTests(TestCase):
             password='Password123',
             username='testuser'
         )
+        self.user.email_verified = True
+        self.user.save()
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
@@ -552,7 +560,9 @@ class PrivateUserApiTests(TestCase):
             'email': 'test2@example.com',
             'password': 'Password123',
         }
-        User.objects.create_user(**user_details)
+        user = User.objects.create_user(**user_details)
+        user.email_verified = True
+        user.save()
 
         payload = {
             'email': user_details['email'],
@@ -582,6 +592,8 @@ class PrivateUserApiTests(TestCase):
             'password': 'Password123',
         }
         user = User.objects.create_user(**user_details)
+        user.email_verified = True
+        user.save()
 
         payload = {
             'email': user_details['email'],
@@ -1203,6 +1215,8 @@ class StaffUserApiTests(TestCase):
             username='staffuser',
             is_staff=True
         )
+        self.user.email_verified = True
+        self.user.save()
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
