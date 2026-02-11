@@ -390,18 +390,35 @@ class PublicUserApiTests(TestCase):
         self.assertEqual(res.data['is_staff'], True)
         self.assertEqual(res.data['is_superuser'], True)
 
-    def test_create_token_bad_credentials(self):
-        """Test that a token is not created with bad credentials."""
+    def test_create_token_wrong_password_for_existing_user(self):
+        """
+        Test that a token is not created with wrong password for existing user.
+        """
         user_details = {
             'username': 'testuser',
             'email': 'test@example.com',
             'password': 'Password123',
         }
-        User.objects.create_user(**user_details)
+        user = User.objects.create_user(**user_details)
+        user.email_verified = True
+        user.save()
 
         payload = {
             'email': user_details['email'],
-            'password': 'badpassword',
+            'password': 'wrongpassword',
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertNotIn('access', res.data)
+        self.assertNotIn('refresh', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['non_field_errors'][0], 'password_incorrect')
+
+    def test_create_token_nonexistent_user(self):
+        """Test that a token is not created for non-existent user."""
+        payload = {
+            'email': 'nonexistent@example.com',
+            'password': 'Password123',
         }
         res = self.client.post(TOKEN_URL, payload)
 
@@ -409,6 +426,28 @@ class PublicUserApiTests(TestCase):
         self.assertNotIn('refresh', res.data)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(res.data['non_field_errors'][0], 'no_active_account')
+
+    def test_create_token_unverified_email(self):
+        """Test that a token is not created for user with unverified email."""
+        user_details = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'Password123',
+        }
+        user = User.objects.create_user(**user_details)
+        user.email_verified = False
+        user.save()
+
+        payload = {
+            'email': user_details['email'],
+            'password': user_details['password'],
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertNotIn('access', res.data)
+        self.assertNotIn('refresh', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['detail'][0], 'email_not_verified')
 
     def test_create_token_blank_email(self):
         """Test that a token is not created with a blank email."""
@@ -450,7 +489,7 @@ class PublicUserApiTests(TestCase):
         self.assertEqual(res.data['email'][0], 'email_invalid')
 
     def test_token_obtains_pair_view_uses_custom_serializer(self):
-        """Test that TokenObtainPairView is using the custom serializer."""
+        """Test that TokenObtainPairView uses custom serializer."""
         from user.views import CustomTokenObtainPairView
         from user.serializers import CustomTokenObtainPairSerializer
         self.assertEqual(
@@ -506,8 +545,8 @@ class PublicUserApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('password', res.data)
         # Should show custom error message
-        # "Password must have at least 1 uppercase,"
-        # "1 lowercase letter and 1 number"
+        # "Password must have at least 1 uppercase,
+        # 1 lowercase letter and 1 number"
         self.assertEqual(
             res.data['password'][0],
             'Password must have at least 1 uppercase, '
