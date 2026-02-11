@@ -164,7 +164,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Custom serializer for token obtain pair view."""
 
     default_error_messages = {
-        'no_active_account': 'no_active_account'
+        'no_active_account': 'no_active_account',
+        'password_incorrect': 'password_incorrect'
     }
 
     def __init__(self, *args, **kwargs):
@@ -188,34 +189,39 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         """
         Validate the user's credentials and return a token pair.
         """
-        # The default result (access/refresh tokens)
-        user = authenticate(
-            request=self.context.get('request'),
-            username=attrs.get('email'),
-            password=attrs.get('password')
-        )
+        email = attrs.get('email')
+        password = attrs.get('password')
 
-        if not user:
-            # Try to find existing user for failed login logging
-            email = attrs.get('email')
-            try:
-                existing_user = get_user_model().objects.get(email=email)
-                # Log failed attempt for existing user
-                self._create_login_activity(existing_user, False)
-            except get_user_model().DoesNotExist:
-                # Don't log for truly non-existent users
-                # (as per our simplified approach)
-                pass
-            self.fail('no_active_account')
+        # First check if user exists
+        try:
+            existing_user = get_user_model().objects.get(email=email)
 
-        # Check if email is verified
-        if not user.email_verified:
-            # Log failed attempt (unverified email)
-            self._create_login_activity(user, False)
-            raise serializers.ValidationError(
-                {'detail': 'email_not_verified'}
+            # User exists, try to authenticate
+            user = authenticate(
+                request=self.context.get('request'),
+                username=email,
+                password=password
             )
 
+            if not user:
+                # User exists but authentication failed (wrong password)
+                self._create_login_activity(existing_user, False)
+                self.fail('password_incorrect')
+
+            # Authentication successful, check email verification
+            if not user.email_verified:
+                # Log failed attempt (unverified email)
+                self._create_login_activity(user, False)
+                raise serializers.ValidationError(
+                    {'detail': 'email_not_verified'}
+                )
+
+        except get_user_model().DoesNotExist:
+            # User doesn't exist
+            self.fail('no_active_account')
+            return  # This line won't be reached but helps with flow clarity
+
+        # User exists, authenticated successfully, and email is verified
         refresh = self.get_token(user)
 
         data = {}
