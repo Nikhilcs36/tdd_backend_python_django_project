@@ -73,16 +73,16 @@ urlpatterns = [
     ),
     # Email verification endpoints
     path('verify-email/<str:token>/',
-         views.verify_email,
+         views.VerifyEmailView.as_view(),
          name='verify-email'),
     path('resend-verification/',
-         views.resend_verification_email,
+         views.ResendVerificationEmailView.as_view(),
          name='resend-verification'),
     # Password reset endpoints
     path('password-reset/',
-         views.request_password_reset,
+         views.RequestPasswordResetView.as_view(),
          name='request-password-reset'),
     path('reset-password/<str:token>/',
-         views.reset_password,
+         views.ResetPasswordView.as_view(),
          name='reset-password'),
 ]

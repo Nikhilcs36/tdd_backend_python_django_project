@@ -293,3 +293,40 @@ class LogoutSerializer(serializers.Serializer):
             RefreshToken(self.token).blacklist()
         except TokenError as e:
             raise e
+
+
+class EmailRequestSerializer(serializers.Serializer):
+    """Serializer for email-only requests."""
+    email = serializers.EmailField(
+        error_messages={
+            'blank': 'email_required',
+            'invalid': 'email_invalid',
+        }
+    )
+
+
+class PasswordResetSerializer(serializers.Serializer):
+    """Serializer for password reset."""
+    password = serializers.CharField(
+        write_only=True,
+        error_messages={'blank': 'password_required'}
+    )
+    passwordRepeat = serializers.CharField(
+        write_only=True,
+        error_messages={'blank': 'password_repeat_null'}
+    )
+
+    def validate(self, attrs):
+        password = attrs.get('password')
+        password_repeat = attrs.get('passwordRepeat')
+
+        if password != password_repeat:
+            raise serializers.ValidationError(
+                {"passwordRepeat": "password_mismatch"}
+            )
+        return attrs
+
+
+class VerifyEmailSerializer(serializers.Serializer):
+    """Empty serializer for verify_email endpoint (token is in URL)."""
+    pass

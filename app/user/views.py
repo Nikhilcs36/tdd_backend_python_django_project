@@ -8,14 +8,16 @@ from drf_spectacular.types import OpenApiTypes
 from .serializers import (
     UserSerializer,
     CustomTokenObtainPairSerializer,
-    LogoutSerializer
+    LogoutSerializer,
+    VerifyEmailSerializer,
+    EmailRequestSerializer,
+    PasswordResetSerializer
 )
 from rest_framework_simplejwt.views import TokenObtainPairView
 from core.models import User
 from .permissions import IsSuperUser, IsStaffOrSuperUser
 from .pagination import UserPagination
 
-from rest_framework.decorators import api_view
 from core.email_service import (
     send_verification_email,
     send_welcome_email,
@@ -226,158 +228,156 @@ class LogoutView(generics.GenericAPIView):
             )
 
 
-@api_view(['POST'])
-def verify_email(request, token):
+class VerifyEmailView(generics.GenericAPIView):
     """Verify user's email with token."""
-    try:
-        user = User.objects.get(verification_token=token)
+    serializer_class = VerifyEmailSerializer
 
-        # Check if token is expired
-        if user.is_verification_token_expired():
-            return Response(
-                {'error': 'Verification token has expired. '
-                 'Please request a new one.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    def post(self, request, token):
+        """Handle email verification."""
+        # Use serializer even though token comes from URL
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid()
 
-        # Verify email
-        if user.verify_email(token):
-            # Send welcome email
-            send_welcome_email(user)
-            return Response(
-                {'message': 'Email verified successfully. '
-                 'You can now log in.'},
-                status=status.HTTP_200_OK
-            )
-        else:
+        try:
+            user = User.objects.get(verification_token=token)
+
+            # Check if token is expired
+            if user.is_verification_token_expired():
+                return Response(
+                    {'error': 'Verification token has expired. '
+                     'Please request a new one.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Verify email
+            if user.verify_email(token):
+                # Send welcome email
+                send_welcome_email(user)
+                return Response(
+                    {'message': 'Email verified successfully. '
+                     'You can now log in.'},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {'error': 'Invalid verification token.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except User.DoesNotExist:
             return Response(
                 {'error': 'Invalid verification token.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-    except User.DoesNotExist:
-        return Response(
-            {'error': 'Invalid verification token.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
 
 
-@api_view(['POST'])
-def resend_verification_email(request):
+class ResendVerificationEmailView(generics.GenericAPIView):
     """Resend verification email."""
-    email = request.data.get('email')
+    serializer_class = EmailRequestSerializer
 
-    if not email:
-        return Response(
-            {'error': 'Email address is required.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    def post(self, request):
+        """Handle resend verification email request."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data.get('email')
 
-    try:
-        user = User.objects.get(email=email)
+        try:
+            user = User.objects.get(email=email)
 
-        if user.email_verified:
+            if user.email_verified:
+                return Response(
+                    {'message': 'Email is already verified.'},
+                    status=status.HTTP_200_OK
+                )
+
+            # Generate new verification token
+            token = user.generate_verification_token()
+            verification_url = build_verification_url(request, token)
+
+            # Send verification email
+            send_verification_email(user, verification_url)
+
             return Response(
-                {'message': 'Email is already verified.'},
+                {'message': 'Verification email sent successfully.'},
+                status=status.HTTP_200_OK
+            )
+        except User.DoesNotExist:
+            # Don't reveal if user exists or not for security
+            return Response(
+                {'message': 'If an account exists with this email, '
+                 'a verification email has been sent.'},
                 status=status.HTTP_200_OK
             )
 
-        # Generate new verification token
-        token = user.generate_verification_token()
-        verification_url = build_verification_url(request, token)
 
-        # Send verification email
-        send_verification_email(user, verification_url)
-
-        return Response(
-            {'message': 'Verification email sent successfully.'},
-            status=status.HTTP_200_OK
-        )
-    except User.DoesNotExist:
-        # Don't reveal if user exists or not for security
-        return Response(
-            {'message': 'If an account exists with this email, '
-             'a verification email has been sent.'},
-            status=status.HTTP_200_OK
-        )
-
-
-@api_view(['POST'])
-def request_password_reset(request):
+class RequestPasswordResetView(generics.GenericAPIView):
     """Request password reset for verified users."""
-    email = request.data.get('email')
+    serializer_class = EmailRequestSerializer
 
-    if not email:
-        return Response(
-            {'error': 'Email address is required.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    def post(self, request):
+        """Handle password reset request."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data.get('email')
 
-    try:
-        user = User.objects.get(email=email)
+        try:
+            user = User.objects.get(email=email)
 
-        # Only allow password reset for verified users
-        if not user.email_verified:
+            # Only allow password reset for verified users
+            if not user.email_verified:
+                return Response(
+                    {'error': 'Please verify your email before '
+                     'resetting password.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Generate password reset token
+            token = user.generate_password_reset_token()
+            reset_url = build_password_reset_url(request, token)
+
+            # Send password reset email
+            send_password_reset_email(user, reset_url)
+
             return Response(
-                {'error': 'Please verify your email before '
-                 'resetting password.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Generate password reset token
-        token = user.generate_password_reset_token()
-        reset_url = build_password_reset_url(request, token)
-
-        # Send password reset email
-        send_password_reset_email(user, reset_url)
-
-        return Response(
-            {'message': 'Password reset email sent successfully.'},
-            status=status.HTTP_200_OK
-        )
-    except User.DoesNotExist:
-        # Don't reveal if user exists or not for security
-        return Response(
-            {'message': 'If an account exists with this email, '
-             'a password reset email has been sent.'},
-            status=status.HTTP_200_OK
-        )
-
-
-@api_view(['POST'])
-def reset_password(request, token):
-    """Reset password with token."""
-    new_password = request.data.get('password')
-    password_repeat = request.data.get('passwordRepeat')
-
-    if not new_password or not password_repeat:
-        return Response(
-            {'error': 'Both password and passwordRepeat are required.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    if new_password != password_repeat:
-        return Response(
-            {'error': 'Passwords do not match.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    try:
-        user = User.objects.get(password_reset_token=token)
-
-        # Reset password
-        if user.reset_password(token, new_password):
-            return Response(
-                {'message': 'Password reset successful. '
-                 'You can now login with your new password.'},
+                {'message': 'Password reset email sent successfully.'},
                 status=status.HTTP_200_OK
             )
-        else:
+        except User.DoesNotExist:
+            # Don't reveal if user exists or not for security
             return Response(
-                {'error': 'Invalid or expired password reset token.'},
+                {'message': 'If an account exists with this email, '
+                 'a password reset email has been sent.'},
+                status=status.HTTP_200_OK
+            )
+
+
+class ResetPasswordView(generics.GenericAPIView):
+    """Reset password with token."""
+    serializer_class = PasswordResetSerializer
+
+    def post(self, request, token):
+        """Handle password reset."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        new_password = serializer.validated_data.get('password')
+
+        try:
+            user = User.objects.get(password_reset_token=token)
+
+            # Reset password
+            if user.reset_password(token, new_password):
+                return Response(
+                    {'message': 'Password reset successful. '
+                     'You can now login with your new password.'},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {'error': 'Invalid or expired password reset token.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Invalid password reset token.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-    except User.DoesNotExist:
-        return Response(
-            {'error': 'Invalid password reset token.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
