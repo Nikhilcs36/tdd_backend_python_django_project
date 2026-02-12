@@ -4,3 +4,4 @@ drf-spectacular>=0.22.0,<0.23
 mysqlclient>=2.1.0,<3.0    # MySQL DB driver for Django
 Pillow>=9.0.0,<10.0
 djangorestframework-simplejwt>=5.2.2,<5.3
+python-dotenv>=1.0.0,<2.0  # Load environment variables from .env file
