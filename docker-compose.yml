@@ -21,7 +21,8 @@ services:
       - DB_USER=devuser
       - DB_PASS=Admin
     env_file:
-      - .env
+      - path: .env
+        required: false
     depends_on:
       - db
   
