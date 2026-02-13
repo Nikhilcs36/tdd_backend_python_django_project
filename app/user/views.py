@@ -232,6 +232,42 @@ class VerifyEmailView(generics.GenericAPIView):
     """Verify user's email with token."""
     serializer_class = VerifyEmailSerializer
 
+    @extend_schema(
+        operation_id="verify_email",
+        summary="Verify Email Address",
+        description=(
+            "Verify user's email address using verification token sent to email. "
+            "The token is included in the URL path. This endpoint validates the "
+            "token, checks if it's expired, and marks the user's email as "
+            "verified if valid."
+        ),
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Verification",
+                value={"message": "Email verified successfully. "
+                       "You can now log in."},
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Invalid Token",
+                value={"error": "Invalid verification token."},
+                response_only=True,
+                status_codes=["400"]
+            ),
+            OpenApiExample(
+                "Expired Token",
+                value={"error": "Verification token has expired. "
+                       "Please request a new one."},
+                response_only=True,
+                status_codes=["400"]
+            ),
+        ]
+    )
     def post(self, request, token):
         """Handle email verification."""
         # Use serializer even though token comes from URL
@@ -274,6 +310,48 @@ class ResendVerificationEmailView(generics.GenericAPIView):
     """Resend verification email."""
     serializer_class = EmailRequestSerializer
 
+    @extend_schema(
+        operation_id="resend_verification_email",
+        summary="Resend Verification Email",
+        description=(
+            "Resend email verification link to user's email address. "
+            "This endpoint accepts an email address and sends a new verification "
+            "email if the user exists and their email is not already verified. "
+            "For security, the response is the same whether the user exists "
+            "or not."
+        ),
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Email Sent Successfully",
+                value={"message": "Verification email sent successfully."},
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Email Already Verified",
+                value={"message": "Email is already verified."},
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Generic Success Response (Security)",
+                value={"message": "If an account exists with this email, "
+                       "a verification email has been sent."},
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Invalid Email Format",
+                value={"email": ["Enter a valid email address."]},
+                response_only=True,
+                status_codes=["400"]
+            ),
+        ]
+    )
     def post(self, request):
         """Handle resend verification email request."""
         serializer = self.get_serializer(data=request.data)
@@ -313,6 +391,48 @@ class RequestPasswordResetView(generics.GenericAPIView):
     """Request password reset for verified users."""
     serializer_class = EmailRequestSerializer
 
+    @extend_schema(
+        operation_id="request_password_reset",
+        summary="Request Password Reset",
+        description=(
+            "Request a password reset email for verified users. "
+            "This endpoint accepts an email address and sends a password "
+            "reset link if the user exists and their email is verified. "
+            "For security, unverified users receive an error message, and "
+            "the response is the same whether a verified user exists or not."
+        ),
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Password Reset Email Sent",
+                value={"message": "Password reset email sent successfully."},
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Email Not Verified",
+                value={"error": "Please verify your email before resetting password."},
+                response_only=True,
+                status_codes=["400"]
+            ),
+            OpenApiExample(
+                "Generic Success Response (Security)",
+                value={"message": "If an account exists with this email, "
+                       "a password reset email has been sent."},
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Invalid Email Format",
+                value={"email": ["Enter a valid email address."]},
+                response_only=True,
+                status_codes=["400"]
+            ),
+        ]
+    )
     def post(self, request):
         """Handle password reset request."""
         serializer = self.get_serializer(data=request.data)
@@ -354,6 +474,57 @@ class ResetPasswordView(generics.GenericAPIView):
     """Reset password with token."""
     serializer_class = PasswordResetSerializer
 
+    @extend_schema(
+        operation_id="reset_password",
+        summary="Reset Password",
+        description=(
+            "Reset user's password using password reset token. "
+            "The token is included in the URL path. This endpoint validates "
+            "the token, checks if it's expired, and updates the user's "
+            "password if valid. Requires new password and password "
+            "confirmation in the request body."
+        ),
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Password Reset Successful",
+                value={"message": "Password reset successful. "
+                       "You can now login with your new password."},
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Invalid Token",
+                value={"error": "Invalid password reset token."},
+                response_only=True,
+                status_codes=["400"]
+            ),
+            OpenApiExample(
+                "Expired Token",
+                value={"error": "Invalid or expired password reset token."},
+                response_only=True,
+                status_codes=["400"]
+            ),
+            OpenApiExample(
+                "Password Mismatch",
+                value={"passwordRepeat": ["password_mismatch"]},
+                response_only=True,
+                status_codes=["400"]
+            ),
+            OpenApiExample(
+                "Missing Password Fields",
+                value={
+                    "password": ["password_required"],
+                    "passwordRepeat": ["password_repeat_null"]
+                },
+                response_only=True,
+                status_codes=["400"]
+            ),
+        ]
+    )
     def post(self, request, token):
         """Handle password reset."""
         serializer = self.get_serializer(data=request.data)
