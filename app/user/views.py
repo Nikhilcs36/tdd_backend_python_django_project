@@ -235,12 +235,13 @@ class VerifyEmailView(generics.GenericAPIView):
     @extend_schema(
         operation_id="verify_email",
         summary="Verify Email Address",
-        description=(
-            "Verify user's email address using verification token sent to email. "
-            "The token is included in the URL path. This endpoint validates the "
-            "token, checks if it's expired, and marks the user's email as "
-            "verified if valid."
-        ),
+        description="""
+        Verify user's email address using a verification token sent to email.
+
+        The token is included in the URL path. This endpoint validates
+        the token, checks if it's expired, and marks the user's email
+        as verified if valid.
+        """,
         responses={
             200: OpenApiTypes.OBJECT,
             400: OpenApiTypes.OBJECT,
@@ -313,13 +314,15 @@ class ResendVerificationEmailView(generics.GenericAPIView):
     @extend_schema(
         operation_id="resend_verification_email",
         summary="Resend Verification Email",
-        description=(
-            "Resend email verification link to user's email address. "
-            "This endpoint accepts an email address and sends a new verification "
-            "email if the user exists and their email is not already verified. "
-            "For security, the response is the same whether the user exists "
-            "or not."
-        ),
+        description="""
+        Resend email verification link to user's email address.
+
+        This endpoint accepts an email address and sends a new verification
+        email if the user exists and their email is not already verified.
+
+        For security reasons, the response is the same whether the user exists
+        or not.
+        """,
         responses={
             200: OpenApiTypes.OBJECT,
             400: OpenApiTypes.OBJECT,
@@ -414,7 +417,8 @@ class RequestPasswordResetView(generics.GenericAPIView):
             ),
             OpenApiExample(
                 "Email Not Verified",
-                value={"error": "Please verify your email before resetting password."},
+                value={"error":
+                       "Please verify your email before resetting password."},
                 response_only=True,
                 status_codes=["400"]
             ),
