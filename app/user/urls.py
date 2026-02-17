@@ -72,7 +72,7 @@ urlpatterns = [
         name='admin-users-stats'
     ),
     # Email verification endpoints
-    path('verify-email/<str:token>/',
+    path('verify-email/',
          views.VerifyEmailView.as_view(),
          name='verify-email'),
     path('resend-verification/',

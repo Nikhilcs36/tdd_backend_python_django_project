@@ -89,8 +89,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         """Verify email with token"""
         if self.verification_token == token:
             self.email_verified = True
-            self.verification_token = None
-            self.verification_token_created_at = None
+            # Don't clear token - keep for "already verified" detection
             self.save()
             return True
         return False

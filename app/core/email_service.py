@@ -53,7 +53,7 @@ def send_password_reset_email(user, reset_url):
     )
 
 
-def build_verification_url(request, token):
+def build_verification_url(request, token, email=None):
     """Build verification URL pointing to FRONTEND (not backend API).
 
     This ensures users clicking email links see the React app,
@@ -62,11 +62,14 @@ def build_verification_url(request, token):
     Args:
         request: HttpRequest object (kept for backward compatibility)
         token: Verification token
+        email: User email (optional, for already-verified detection)
 
     Returns:
         str: Full verification URL pointing to frontend
     """
     frontend_url = settings.FRONTEND_BASE_URL.rstrip('/')
+    if email:
+        return f"{frontend_url}/verify-email/?email={email}&token={token}"
     return f"{frontend_url}/verify-email/{token}/"
 
 
