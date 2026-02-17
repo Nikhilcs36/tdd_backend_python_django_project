@@ -47,13 +47,13 @@ class EmailVerificationSimpleTests(TestCase):
         result = self.user.verify_email(token)
         self.assertTrue(result)
         self.assertTrue(self.user.email_verified)
-        self.assertIsNone(self.user.verification_token)
-        self.assertIsNone(self.user.verification_token_created_at)
+        # Token is preserved (not cleared) for "already verified" detection
+        self.assertEqual(self.user.verification_token, token)
 
         # Refresh from db
         self.user.refresh_from_db()
         self.assertTrue(self.user.email_verified)
-        self.assertIsNone(self.user.verification_token)
+        self.assertEqual(self.user.verification_token, token)
 
     def test_verify_email_with_wrong_token(self):
         """Test verify_email method with wrong token returns False"""

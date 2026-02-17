@@ -40,8 +40,10 @@ class CreateUserView(generics.CreateAPIView):
         # Generate verification token
         token = user.generate_verification_token()
 
-        # Build verification URL
-        verification_url = build_verification_url(self.request, token)
+        # Build verification URL with email
+        verification_url = build_verification_url(
+            self.request, token, email=user.email
+        )
 
         # Send verification email
         try:
@@ -238,9 +240,10 @@ class VerifyEmailView(generics.GenericAPIView):
         description="""
         Verify user's email address using a verification token sent to email.
 
-        The token is included in the URL path. This endpoint validates
-        the token, checks if it's expired, and marks the user's email
-        as verified if valid.
+        This endpoint accepts email and token in the request body.
+        For security, it first validates the token, then checks
+        if the email is already verified, and marks the user's
+        email as verified if valid.
         """,
         responses={
             200: OpenApiTypes.OBJECT,
@@ -255,6 +258,13 @@ class VerifyEmailView(generics.GenericAPIView):
                 status_codes=["200"]
             ),
             OpenApiExample(
+                "Already Verified",
+                value={"message": "Email is already verified.",
+                       "already_verified": True},
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
                 "Invalid Token",
                 value={"error": "Invalid verification token."},
                 response_only=True,
@@ -263,44 +273,76 @@ class VerifyEmailView(generics.GenericAPIView):
             OpenApiExample(
                 "Expired Token",
                 value={"error": "Verification token has expired. "
-                       "Please request a new one."},
+                       "Please request a new one.",
+                       "expired": True},
                 response_only=True,
                 status_codes=["400"]
             ),
         ]
     )
-    def post(self, request, token):
+    def post(self, request):
         """Handle email verification."""
-        # Use serializer even though token comes from URL
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid()
+        email = request.data.get('email')
+        token = request.data.get('token')
+
+        # Validate required fields
+        if not email:
+            return Response(
+                {'email': ['This field is required.']},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not token:
+            return Response(
+                {'token': ['This field is required.']},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
-            user = User.objects.get(verification_token=token)
+            user = User.objects.get(email=email)
 
-            # Check if token is expired
-            if user.is_verification_token_expired():
-                return Response(
-                    {'error': 'Verification token has expired. '
-                     'Please request a new one.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Verify email
-            if user.verify_email(token):
-                # Send welcome email
-                send_welcome_email(user)
-                return Response(
-                    {'message': 'Email verified successfully. '
-                     'You can now log in.'},
-                    status=status.HTTP_200_OK
-                )
-            else:
+            # SECURITY: Check token FIRST
+            # (don't reveal verified status for wrong token)
+            if user.verification_token != token:
                 return Response(
                     {'error': 'Invalid verification token.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
+            # Check if token is expired
+            if user.is_verification_token_expired():
+                return Response(
+                    {
+                        'error': 'Verification token has expired. '
+                        'Please request a new one.',
+                        'expired': True
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Check if email is already verified
+            # (only after token is validated)
+            if user.email_verified:
+                return Response(
+                    {
+                        'message': 'Email is already verified.',
+                        'already_verified': True
+                    },
+                    status=status.HTTP_200_OK
+                )
+
+            # Verify email
+            # (token preserved for future "already verified" checks)
+            user.verify_email(token)
+            # Send welcome email
+            send_welcome_email(user)
+            return Response(
+                {'message': 'Email verified successfully. '
+                 'You can now log in.'},
+                status=status.HTTP_200_OK
+            )
+
         except User.DoesNotExist:
+            # Don't reveal if user exists or not
             return Response(
                 {'error': 'Invalid verification token.'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -372,7 +414,9 @@ class ResendVerificationEmailView(generics.GenericAPIView):
 
             # Generate new verification token
             token = user.generate_verification_token()
-            verification_url = build_verification_url(request, token)
+            verification_url = build_verification_url(
+                request, token, email=user.email
+            )
 
             # Send verification email
             send_verification_email(user, verification_url)

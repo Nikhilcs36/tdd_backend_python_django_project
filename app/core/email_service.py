@@ -53,44 +53,41 @@ def send_password_reset_email(user, reset_url):
     )
 
 
-def build_verification_url(request, token):
-    """Build verification URL for email verification.
+def build_verification_url(request, token, email=None):
+    """Build verification URL pointing to FRONTEND (not backend API).
+
+    This ensures users clicking email links see the React app,
+    not the Django REST Framework browsable API.
 
     Args:
-        request: HttpRequest object
+        request: HttpRequest object (kept for backward compatibility)
         token: Verification token
+        email: User email (optional, for already-verified detection)
 
     Returns:
-        str: Full verification URL
+        str: Full verification URL pointing to frontend
     """
-    if request:
-        base_url = request.build_absolute_uri('/')
-    else:
-        base_url = 'http://localhost:8000/'
-
-    # Remove trailing slash if present
-    base_url = base_url.rstrip('/')
-    return f"{base_url}/api/user/verify-email/{token}/"
+    frontend_url = settings.FRONTEND_BASE_URL.rstrip('/')
+    if email:
+        return f"{frontend_url}/verify-email/?email={email}&token={token}"
+    return f"{frontend_url}/verify-email/{token}/"
 
 
 def build_password_reset_url(request, token):
-    """Build password reset URL.
+    """Build password reset URL pointing to FRONTEND (not backend API).
+
+    This ensures users clicking email links see the React app,
+    not the Django REST Framework browsable API.
 
     Args:
-        request: HttpRequest object
+        request: HttpRequest object (kept for backward compatibility)
         token: Password reset token
 
     Returns:
-        str: Full password reset URL
+        str: Full password reset URL pointing to frontend
     """
-    if request:
-        base_url = request.build_absolute_uri('/')
-    else:
-        base_url = 'http://localhost:8000/'
-
-    # Remove trailing slash if present
-    base_url = base_url.rstrip('/')
-    return f"{base_url}/api/user/reset-password/{token}/"
+    frontend_url = settings.FRONTEND_BASE_URL.rstrip('/')
+    return f"{frontend_url}/reset-password/{token}/"
 
 
 def send_welcome_email(user):
