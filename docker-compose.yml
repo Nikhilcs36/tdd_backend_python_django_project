@@ -6,6 +6,7 @@ services:
       context: .
       args:
         - DEV=true
+    container_name: backend
     ports:
       - "8000:8000"
     volumes:
@@ -25,6 +26,8 @@ services:
         required: false
     depends_on:
       - db
+    networks:
+      - tdd-network
   
   db:
     image: mysql:8.0.43-debian
@@ -36,7 +39,14 @@ services:
       - MYSQL_USER=devuser
       - MYSQL_PASSWORD=Admin
       - MYSQL_ROOT_PASSWORD=rootpass
+    networks:
+      - tdd-network
 
 volumes:
   dev-db-data:
   app-media:
+
+networks:
+  tdd-network:
+    external: true
+    name: tdd-network
