@@ -755,8 +755,8 @@ class PrivateUserApiTests(TestCase):
         self.user.refresh_from_db()
         self.assertFalse(self.user.image)
 
-    def test_image_url_is_absolute(self):
-        """Test that the image URL in the response is an absolute URL."""
+    def test_image_url_is_relative(self):
+        """Test that the image URL in the response is a relative URL."""
         image_path = os.path.join(
             settings.MEDIA_ROOT, 'uploads', 'user', '29-png.png'
         )
@@ -768,7 +768,9 @@ class PrivateUserApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertIn('image', res.data)
-        self.assertTrue(res.data['image'].startswith('http'))
+        self.assertTrue(res.data['image'].startswith('/media/'))
+        self.assertNotIn('http://', res.data['image'])
+        self.assertNotIn('https://', res.data['image'])
 
     def test_upload_image_too_large_fail(self):
         """Test uploading an image that is too large."""

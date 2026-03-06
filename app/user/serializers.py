@@ -6,6 +6,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from core.models import LoginActivity
+from .fields import RelativeURLFileField
 from .validators import (
     validate_username,
     validate_email_for_signup,
@@ -21,10 +22,9 @@ class UserSerializer(serializers.ModelSerializer):
         style={'input_type': 'password'},
         error_messages={'blank': 'password_repeat_null'}
     )
-    image = serializers.FileField(
+    image = RelativeURLFileField(
         max_length=100,
         allow_empty_file=True,
-        use_url=True,
         required=False,
         allow_null=True
     )
