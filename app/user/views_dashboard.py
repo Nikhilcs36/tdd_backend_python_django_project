@@ -28,9 +28,37 @@ from core.models import LoginActivity
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 
 User = get_user_model()
+
+
+class DateFilteredAPIView(generics.GenericAPIView):
+    """Base class providing date filtering functionality for API views."""
+
+    def get_date_filters(self, request):
+        """Extract and validate date filters from request.
+
+        Returns:
+            tuple: (start_date, end_date) - both can be None if not provided
+        """
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        if start_date or end_date:
+            try:
+                if start_date:
+                    start_date = timezone.make_aware(
+                        datetime.strptime(start_date, '%Y-%m-%d'))
+                if end_date:
+                    end_date = timezone.make_aware(
+                        datetime.strptime(end_date, '%Y-%m-%d'))
+            except ValueError:
+                raise ValidationError(
+                    {'error': 'Invalid date format. Use YYYY-MM-DD format.'}
+                )
+
+        return start_date, end_date
 
 
 class UserStatsView(generics.GenericAPIView):
@@ -121,7 +149,7 @@ class UserStatsView(generics.GenericAPIView):
         return Response(serializer.data)
 
 
-class LoginActivityView(generics.ListAPIView):
+class LoginActivityView(DateFilteredAPIView, generics.ListAPIView):
     """API endpoint to get user login activity."""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = LoginActivitySerializer
@@ -212,31 +240,15 @@ class LoginActivityView(generics.ListAPIView):
             .select_related('user') \
             .order_by('-timestamp')
 
-        # Apply date filtering if parameters are provided
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
+        # Apply date filtering using the base class method
+        start_date, end_date = self.get_date_filters(self.request)
 
-        if start_date or end_date:
-            try:
-                if start_date:
-                    start_date = timezone.make_aware(
-                        datetime.strptime(start_date, '%Y-%m-%d'))
-                if end_date:
-                    end_date = timezone.make_aware(
-                        datetime.strptime(end_date, '%Y-%m-%d'))
-            except ValueError:
-                # Raise validation error for invalid date format
-                from rest_framework.exceptions import ValidationError
-                raise ValidationError(
-                    {'error': 'Invalid date format. Use YYYY-MM-DD format.'}
-                )
-
-            if start_date and end_date:
-                queryset = queryset.filter(timestamp__range=(start_date, end_date))  # noqa: E501
-            elif start_date:
-                queryset = queryset.filter(timestamp__gte=start_date)
-            elif end_date:
-                queryset = queryset.filter(timestamp__lte=end_date)
+        if start_date and end_date:
+            queryset = queryset.filter(timestamp__range=(start_date, end_date))
+        elif start_date:
+            queryset = queryset.filter(timestamp__gte=start_date)
+        elif end_date:
+            queryset = queryset.filter(timestamp__lte=end_date)
 
         return queryset
 
@@ -1218,12 +1230,11 @@ def check_user_access(request, target_user_id):
     return False  # Unauthorized access
 
 
-class UserSpecificStatsView(generics.GenericAPIView):
+class UserSpecificStatsView(DateFilteredAPIView, generics.GenericAPIView):
     """
     API endpoint to get user login activity with role-based access control.
-    Provides paginated login activity history for a specific user with proper
-    authorization. Users can access their own data, admins can access any
-    user's data.
+    Provides paginated login activity history for a specific user.
+    Users can access their own data, admins can access any user's data.
     """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserStatsSerializer
@@ -1234,10 +1245,28 @@ class UserSpecificStatsView(generics.GenericAPIView):
         description=(
             "Retrieve comprehensive statistics for a specific user. Users "
             "can access their own data, admins/staff can access any user's "
-            "data. Requires user_id path parameter."
+            "data. Supports optional date filtering with start_date and "
+            "end_date parameters. Requires user_id path parameter."
         ),
+        parameters=[
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Start date for filtering statistics (YYYY-MM-DD)",
+                required=False
+            ),
+            OpenApiParameter(
+                name="end_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="End date for filtering statistics (YYYY-MM-DD)",
+                required=False
+            )
+        ],
         responses={
             200: UserStatsSerializer,
+            400: OpenApiTypes.OBJECT,
             403: OpenApiTypes.OBJECT,
             404: OpenApiTypes.OBJECT
         },
@@ -1251,6 +1280,18 @@ class UserSpecificStatsView(generics.GenericAPIView):
                         "2025-12-07": 5, "2025-12-08": 3, "2025-12-09": 7},
                     "monthly_data": {"2025-11": 15, "2025-12": 27},
                     "login_trend": 80
+                },
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Response with Date Filtering",
+                value={
+                    "total_logins": 15,
+                    "last_login": "2025-12-10 14:30:25",
+                    "weekly_data": {"2025-12-09": 5, "2025-12-10": 10},
+                    "monthly_data": {"2025-12": 15},
+                    "login_trend": 25
                 },
                 response_only=True,
                 status_codes=["200"]
@@ -1290,20 +1331,23 @@ class UserSpecificStatsView(generics.GenericAPIView):
         # Get user object or return 404 if not found
         user = get_object_or_404(User, id=user_id)
 
+        # Get date filters using the base class method
+        start_date, end_date = self.get_date_filters(request)
+
         # Retrieve statistics using existing get_user_stats function
-        user_stats = get_user_stats(user)
+        # with date filtering
+        user_stats = get_user_stats(user, start_date, end_date)
 
         # Serialize and return data
         serializer = self.get_serializer(user_stats)
         return Response(serializer.data)
 
 
-class UserSpecificLoginActivityView(generics.ListAPIView):
+class UserSpecificLoginActivityView(DateFilteredAPIView, generics.ListAPIView):
     """
     API endpoint to get user login activity with role-based access control.
-    Provides paginated login activity history for a specific user with proper
-    authorization. Users can access their own data, admins can access any
-    user's data.
+    Provides paginated login activity history for a specific user.
+    Users can access their own data, admins can access any user's data.
     """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = LoginActivitySerializer
@@ -1315,10 +1359,35 @@ class UserSpecificLoginActivityView(generics.ListAPIView):
         description=(
             "Retrieve paginated login activity history for a specific user. "
             "Users can access their own data, admins/staff can access any "
-            "user's data. Supports pagination with page and size parameters."  # noqa: E501
+            "user's data. Supports optional date filtering with start_date "
+            "and end_date parameters. Supports pagination with page and size "
+            "parameters."
         ),
+        parameters=[
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Start date for filtering activities "
+                    "(YYYY-MM-DD)"
+                ),
+                required=False
+            ),
+            OpenApiParameter(
+                name="end_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "End date for filtering activities "
+                    "(YYYY-MM-DD)"
+                ),
+                required=False
+            )
+        ],
         responses={
             200: LoginActivitySerializer(many=True),
+            400: OpenApiTypes.OBJECT,
             403: OpenApiTypes.OBJECT,
             404: OpenApiTypes.OBJECT
         },
@@ -1342,6 +1411,26 @@ class UserSpecificLoginActivityView(generics.ListAPIView):
                                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                                 "AppleWebKit/537.36"
                             ),
+                            "success": True
+                        }
+                    ]
+                },
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Response with Date Filtering",
+                value={
+                    "count": 15,
+                    "next": None,
+                    "previous": None,
+                    "results": [
+                        {
+                            "id": 125,
+                            "username": "testuser",
+                            "timestamp": "2025-12-12 14:30:25",
+                            "ip_address": "192.168.1.102",
+                            "user_agent": "Chrome/91.0",
                             "success": True
                         }
                     ]
@@ -1385,17 +1474,31 @@ class UserSpecificLoginActivityView(generics.ListAPIView):
         # Get user object or return 404 if not found
         user = get_object_or_404(User, id=user_id)
 
-        # Retrieve login activities for the user
-        activities = LoginActivity.objects.filter(user=user)
+        # Store user for use in get_queryset
+        self.target_user = user
 
-        # Apply pagination
-        paginator = self.pagination_class()
-        page_obj = paginator.paginate_queryset(activities, request)
+        # Use the standard ListAPIView get method which will call get_queryset
+        return super().get(request)
 
-        # Serialize and return paginated response
-        serializer = self.get_serializer(page_obj, many=True)
+    def get_queryset(self):
+        """
+        Return login activities for the specific user with date filtering.
+        """
+        queryset = LoginActivity.objects.filter(user=self.target_user) \
+            .select_related('user') \
+            .order_by('-timestamp')
 
-        return paginator.get_paginated_response(serializer.data)
+        # Apply date filtering using the base class method
+        start_date, end_date = self.get_date_filters(self.request)
+
+        if start_date and end_date:
+            queryset = queryset.filter(timestamp__range=(start_date, end_date))
+        elif start_date:
+            queryset = queryset.filter(timestamp__gte=start_date)
+        elif end_date:
+            queryset = queryset.filter(timestamp__lte=end_date)
+
+        return queryset
 
 
 class AdminUsersStatsView(generics.GenericAPIView):
