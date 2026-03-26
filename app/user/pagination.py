@@ -7,3 +7,11 @@ class UserPagination(PageNumberPagination):
     page_size_query_param = 'size'  # Allows client to override page size
     max_page_size = 100  # Maximum allowed page size
     page_query_param = 'page'  # Page number parameter
+
+
+class LoginActivityPagination(PageNumberPagination):
+    """Custom pagination class for login activity listings."""
+    page_size = 100  # Default page size for login activity
+    page_size_query_param = 'size'  # Allows client to override page size
+    max_page_size = 100  # Maximum allowed page size
+    page_query_param = 'page'  # Page number parameter

@@ -142,11 +142,25 @@ class DashboardAPITests(TestCase):
         """Test that login activity endpoint supports pagination."""
         self.client.force_authenticate(user=self.user)
         url = reverse('user:login-activity')
-        response = self.client.get(url, {'page': 1, 'page_size': 3})
+        response = self.client.get(url, {'page': 1, 'size': 3})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 3)
         self.assertEqual(response.data['count'], 7)
+
+    def test_login_activity_returns_more_than_default_records(self):
+        """Test that login activity endpoint can return more than default
+        3 records."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:login-activity')
+
+        # Request 100 records (frontend default)
+        response = self.client.get(url, {'size': 100})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should return all 7 records, not just 3
+        self.assertEqual(response.data['count'], 7)
+        self.assertEqual(len(response.data['results']), 7)
 
     def test_user_stats_includes_correct_login_count(self):
         """Test that user stats includes correct login count."""
@@ -181,7 +195,7 @@ class DashboardAPITests(TestCase):
         error_msg = (
             f"last_login '{last_login}' doesn't match expected format "
             "YYYY-MM-DD HH:MM:SS"
-        )  # noqa: E501
+        )
         self.assertRegex(last_login, pattern, error_msg)
 
     def test_user_stats_data_structure(self):

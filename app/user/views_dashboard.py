@@ -8,7 +8,7 @@ from drf_spectacular.utils import (
 )
 from drf_spectacular.types import OpenApiTypes
 from .permissions import IsStaffOrSuperUser
-from .pagination import UserPagination
+from .pagination import LoginActivityPagination
 from .serializers_dashboard import (
     LoginActivitySerializer,
     UserStatsSerializer,
@@ -153,7 +153,7 @@ class LoginActivityView(DateFilteredAPIView, generics.ListAPIView):
     """API endpoint to get user login activity."""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = LoginActivitySerializer
-    pagination_class = UserPagination
+    pagination_class = LoginActivityPagination
 
     @extend_schema(
         operation_id="get_login_activity",
@@ -1351,7 +1351,7 @@ class UserSpecificLoginActivityView(DateFilteredAPIView, generics.ListAPIView):
     """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = LoginActivitySerializer
-    pagination_class = UserPagination
+    pagination_class = LoginActivityPagination
 
     @extend_schema(
         operation_id="get_user_specific_login_activity",
