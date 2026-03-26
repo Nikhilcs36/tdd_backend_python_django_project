@@ -138,7 +138,7 @@ class LoginActivityRecordingTests(TestCase):
         """Test that login activity endpoint supports pagination."""
         self.client.force_authenticate(user=self.user)
         url = reverse('user:login-activity')
-        response = self.client.get(url, {'page': 1, 'page_size': 3})
+        response = self.client.get(url, {'page': 1, 'size': 3})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 3)
