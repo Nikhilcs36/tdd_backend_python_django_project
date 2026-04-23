@@ -105,7 +105,9 @@ class UserStatsView(generics.GenericAPIView):
                     "weekly_data": {
                         "2025-12-07": 5, "2025-12-08": 3, "2025-12-09": 7},
                     "monthly_data": {"2025-11": 15, "2025-12": 27},
-                    "login_trend": 80
+                    "login_trend": 80,
+                    "total_successful_logins": 42,
+                    "total_failed_logins": 3
                 },
                 response_only=True,
                 status_codes=["200"]
@@ -117,7 +119,9 @@ class UserStatsView(generics.GenericAPIView):
                     "last_login": "2025-12-10 14:30:25",
                     "weekly_data": {"2025-12-09": 5, "2025-12-10": 10},
                     "monthly_data": {"2025-12": 15},
-                    "login_trend": 25
+                    "login_trend": 25,
+                    "total_successful_logins": 15,
+                    "total_failed_logins": 1
                 },
                 response_only=True,
                 status_codes=["200"]

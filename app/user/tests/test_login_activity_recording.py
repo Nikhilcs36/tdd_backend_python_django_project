@@ -150,8 +150,10 @@ class LoginActivityRecordingTests(TestCase):
         url = reverse('user:dashboard-stats')
         response = self.client.get(url)
 
-        # Should only count successful logins (5)
-        self.assertEqual(response.data['total_logins'], 5)
+        # Should count all login attempts (5 successful + 2 failed = 7)
+        self.assertEqual(response.data['total_logins'], 7)
+        self.assertEqual(response.data['total_successful_logins'], 5)
+        self.assertEqual(response.data['total_failed_logins'], 2)
 
     def test_user_stats_includes_login_trend_calculation(self):
         """Test that user stats includes login trend calculation."""
