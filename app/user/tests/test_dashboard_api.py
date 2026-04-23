@@ -168,8 +168,10 @@ class DashboardAPITests(TestCase):
         url = reverse('user:dashboard-stats')
         response = self.client.get(url)
 
-        # Should only count successful logins (5)
-        self.assertEqual(response.data['total_logins'], 5)
+        # Should count all login attempts (5 successful + 2 failed = 7)
+        self.assertEqual(response.data['total_logins'], 7)
+        self.assertEqual(response.data['total_successful_logins'], 5)
+        self.assertEqual(response.data['total_failed_logins'], 2)
 
     def test_user_stats_includes_login_trend_calculation(self):
         """Test that user stats includes login trend calculation."""
@@ -207,7 +209,8 @@ class DashboardAPITests(TestCase):
         # Verify complete response structure
         expected_keys = [
             'total_logins', 'last_login', 'weekly_data',
-            'monthly_data', 'login_trend'
+            'monthly_data', 'login_trend',
+            'total_successful_logins', 'total_failed_logins'
         ]
         self.assertEqual(set(response.data.keys()), set(expected_keys))
 
@@ -1415,6 +1418,139 @@ class DashboardAPITests(TestCase):
                 'error': 'Invalid date format. Use YYYY-MM-DD format.',
             },
         )
+
+    # TDD: Tests for total_successful_logins and total_failed_logins
+    def test_user_stats_includes_successful_and_failed_logins(self):
+        """Test that user stats includes total_successful_logins and
+        total_failed_logins."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:dashboard-stats')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('total_successful_logins', response.data)
+        self.assertIn('total_failed_logins', response.data)
+        self.assertIsInstance(response.data['total_successful_logins'], int)
+        self.assertIsInstance(response.data['total_failed_logins'], int)
+
+    def test_user_stats_successful_and_failed_counts_are_accurate(self):
+        """Test that successful and failed login counts match actual
+        LoginActivity records."""
+        # Clear existing activities
+        LoginActivity.objects.filter(user=self.user).delete()
+
+        # Create exactly 3 successful and 2 failed logins
+        for i in range(3):
+            LoginActivity.objects.create(
+                user=self.user,
+                ip_address=f'192.168.1.{i+1}',
+                user_agent=f'Success Browser {i+1}',
+                success=True
+            )
+        for i in range(2):
+            LoginActivity.objects.create(
+                user=self.user,
+                ip_address=f'192.168.2.{i+1}',
+                user_agent=f'Fail Browser {i+1}',
+                success=False
+            )
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:dashboard-stats')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total_successful_logins'], 3)
+        self.assertEqual(response.data['total_failed_logins'], 2)
+        # total_logins should be sum of successful + failed
+        self.assertEqual(response.data['total_logins'], 5)
+
+    def test_user_stats_data_structure_includes_new_fields(self):
+        """Test that user stats response includes the new fields in data
+        structure."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:dashboard-stats')
+        response = self.client.get(url)
+
+        expected_keys = [
+            'total_logins', 'last_login', 'weekly_data',
+            'monthly_data', 'login_trend',
+            'total_successful_logins', 'total_failed_logins'
+        ]
+        self.assertEqual(set(response.data.keys()), set(expected_keys))
+
+    def test_admin_dashboard_user_stats_matches_regular_user_stats(self):
+        """Integration test: admin dashboard filtered by user_id should show
+        same success/fail counts as that user's own stats."""
+        # Clear all activities first
+        LoginActivity.objects.all().delete()
+
+        # Create a new regular user
+        regular_user = User.objects.create_user(
+            username='regularstatsuser',
+            email='regularstats@example.com',
+            password='regularpass123'
+        )
+
+        # Create mixed login activities for this user
+        # 4 successful, 1 failed
+        for i in range(4):
+            LoginActivity.objects.create(
+                user=regular_user,
+                ip_address=f'10.0.0.{i+1}',
+                user_agent=f'Regular Browser {i+1}',
+                success=True
+            )
+        LoginActivity.objects.create(
+            user=regular_user,
+            ip_address='10.0.0.99',
+            user_agent='Fail Browser',
+            success=False
+        )
+
+        # Get regular user's own stats
+        self.client.force_authenticate(user=regular_user)
+        url = reverse('user:dashboard-stats')
+        user_response = self.client.get(url)
+
+        self.assertEqual(user_response.status_code, status.HTTP_200_OK)
+        user_success = user_response.data['total_successful_logins']
+        user_fail = user_response.data['total_failed_logins']
+        user_total = user_response.data['total_logins']
+
+        # Now login as admin and get dashboard for this specific user
+        self.client.force_authenticate(user=self.admin_user)
+        admin_url = reverse('user:admin-dashboard')
+        admin_response = self.client.get(
+            admin_url, {'user_ids[]': [regular_user.id]}
+        )
+
+        self.assertEqual(admin_response.status_code, status.HTTP_200_OK)
+        admin_success = admin_response.data['total_successful_logins']
+        admin_fail = admin_response.data['total_failed_logins']
+        admin_total = admin_response.data['total_logins']
+
+        # Verify all counts match between user stats and admin dashboard
+        self.assertEqual(
+            admin_success, user_success,
+            "Admin successful logins should match user's successful logins"
+        )
+        self.assertEqual(
+            admin_fail, user_fail,
+            "Admin failed logins should match user's failed logins"
+        )
+        self.assertEqual(
+            admin_total, user_total,
+            "Admin total logins should match user's total logins"
+        )
+
+        # Additional sanity checks (4 successful + 1 failed = 5 total)
+        self.assertEqual(user_success, 4)
+        self.assertEqual(user_fail, 1)
+        self.assertEqual(user_total, 5)
+        self.assertEqual(admin_success, 4)
+        self.assertEqual(admin_fail, 1)
+        self.assertEqual(admin_total, 5)
 
     def test_user_specific_stats_date_filtering_works(self):
         """Test user-specific stats endpoint date filtering."""  # noqa: E501
