@@ -139,7 +139,7 @@ class LoginActivity(models.Model):
         on_delete=models.CASCADE,
         related_name='login_activities'
     )
-    timestamp = models.DateTimeField(auto_now_add=True)
+    timestamp = models.DateTimeField(default=timezone.now)
     ip_address = models.GenericIPAddressField()
     user_agent = models.CharField(max_length=500)
     success = models.BooleanField(default=True)
@@ -167,10 +167,11 @@ class LoginActivity(models.Model):
             self.user.last_login_timestamp = self.timestamp
 
             # Update weekly and monthly login statistics
-            from django.utils import timezone
+            # Use self.timestamp to ensure all time-based calculations
+            # are consistent and accurate
             from datetime import timedelta
 
-            current_time = timezone.now()
+            current_time = self.timestamp
 
             # Update weekly logins
             week_start = current_time - timedelta(days=current_time.weekday())

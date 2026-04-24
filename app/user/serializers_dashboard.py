@@ -1,4 +1,4 @@
-"""Serializers for dashboard API endpoints with TypeScript-friendly responses."""  # noqa: E501
+"""Serializers for dashboard API with TypeScript-friendly responses."""
 from rest_framework import serializers
 from core.models import LoginActivity, User
 from datetime import timedelta
@@ -11,7 +11,7 @@ from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
 class LoginActivitySerializer(serializers.ModelSerializer):
     """Serializer for login activity data."""
 
-    timestamp = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
+    timestamp = serializers.SerializerMethodField()
     username = serializers.CharField(source='user.username', read_only=True)
 
     class Meta:
@@ -22,17 +22,34 @@ class LoginActivitySerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
+    def get_timestamp(self, obj):
+        """Return timestamp in local timezone."""
+        if obj.timestamp:
+            local_dt = timezone.localtime(obj.timestamp)
+            return local_dt.strftime('%Y-%m-%d %H:%M:%S')
+        return None
+
 
 class UserStatsSerializer(serializers.Serializer):
     """Serializer for user statistics data."""
 
     total_logins = serializers.IntegerField()
-    last_login = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
+    last_login = serializers.SerializerMethodField()
     weekly_data = serializers.JSONField()
     monthly_data = serializers.JSONField()
     login_trend = serializers.IntegerField()
     total_successful_logins = serializers.IntegerField()
     total_failed_logins = serializers.IntegerField()
+
+    def get_last_login(self, obj):
+        """Return last_login in local timezone."""
+        last_login = obj.get('last_login')
+        if last_login:
+            if isinstance(last_login, str):
+                return last_login
+            local_dt = timezone.localtime(last_login)
+            return local_dt.strftime('%Y-%m-%d %H:%M:%S')
+        return None
 
 
 class AdminDashboardSerializer(serializers.Serializer):
@@ -184,7 +201,7 @@ def get_user_stats(user, start_date=None, end_date=None):
         return {
             'total_logins': total_logins,
             'last_login': (
-                last_login.strftime('%Y-%m-%d %H:%M:%S')
+                timezone.localtime(last_login).strftime('%Y-%m-%d %H:%M:%S')
                 if last_login else None
             ),
             'weekly_data': weekly_data,
@@ -210,7 +227,11 @@ def get_user_stats(user, start_date=None, end_date=None):
 
         return {
             'total_logins': total_logins,
-            'last_login': user.last_login_timestamp.strftime('%Y-%m-%d %H:%M:%S') if user.last_login_timestamp else None,  # noqa: E501
+            'last_login': (
+                timezone.localtime(user.last_login_timestamp).strftime(
+                    '%Y-%m-%d %H:%M:%S')
+                if user.last_login_timestamp else None
+            ),
             'weekly_data': user.weekly_logins or {},
             'monthly_data': user.monthly_logins or {},
             'login_trend': calculate_login_trend(user),

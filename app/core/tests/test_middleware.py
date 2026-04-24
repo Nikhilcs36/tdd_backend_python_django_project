@@ -15,7 +15,10 @@ class LoginTrackingMiddlewareTests(TestCase):
     def setUp(self):
         """Set up test data."""
         self.factory = RequestFactory()
-        def get_response(req): return Mock(status_code=200)
+
+        def get_response(req):
+            return Mock(status_code=200)
+
         self.middleware = LoginTrackingMiddleware(get_response)
 
         # Create test user
@@ -32,7 +35,7 @@ class LoginTrackingMiddlewareTests(TestCase):
     def test_middleware_tracks_successful_login(self):
         """Test that middleware tracks successful login attempts."""
         # Create a mock authentication request
-        request = self.factory.post('/api/token/', data={
+        request = self.factory.post('/api/user/token/', data={
             'email': 'test@example.com',
             'password': 'testpass123'
         })
@@ -56,26 +59,41 @@ class LoginTrackingMiddlewareTests(TestCase):
         self.assertIsNotNone(activity.ip_address)
         self.assertIsNotNone(activity.user_agent)
 
-    def test_middleware_tracks_failed_login(self):
+    def test_middleware_tracks_failed_login_for_existing_user(self):
         """Test that middleware tracks failed login attempts."""
         # Create a mock authentication request
-        request = self.factory.post('/api/token/', data={
+        request = self.factory.post('/api/user/token/', data={
             'email': 'test@example.com',
             'password': 'wrongpassword'
         })
 
-        # Mock unauthenticated user
+        # Mock unauthenticated user (JWT auth happens in view)
         request.user = Mock(is_authenticated=False)
 
         # Mock failed response
-        response = Mock(status_code=401)
+        response = Mock(status_code=400)
 
         # Call the middleware
         self.middleware._track_login_activity(request, response)
 
-        # Verify no login activity was created for unauthenticated user
-        activities = LoginActivity.objects.filter(user=self.user)
-        self.assertEqual(activities.count(), 0)
+        # Verify failed login activity was created for existing user
+        activities = LoginActivity.objects.filter(
+            user=self.user, success=False)
+        self.assertEqual(activities.count(), 1)
+
+    def test_middleware_skips_failed_login_for_nonexistent_user(self):
+        """Test middleware skips tracking for non-existent users."""
+        request = self.factory.post('/api/user/token/', data={
+            'email': 'nonexistent@example.com',
+            'password': 'somepassword'
+        })
+        request.user = Mock(is_authenticated=False)
+
+        response = Mock(status_code=400)
+        self.middleware._track_login_activity(request, response)
+
+        # Should not create any activity
+        self.assertEqual(LoginActivity.objects.count(), 0)
 
     def test_middleware_handles_non_auth_endpoints(self):
         """Test that middleware ignores non-authentication endpoints."""
@@ -93,7 +111,7 @@ class LoginTrackingMiddlewareTests(TestCase):
     def test_middleware_handles_auth_endpoints(self):
         """Test that middleware processes authentication endpoints."""
         # Create a mock auth request
-        request = self.factory.post('/api/token/')
+        request = self.factory.post('/api/user/token/')
         request.user = self.user
 
         # Call the full middleware
@@ -106,7 +124,7 @@ class LoginTrackingMiddlewareTests(TestCase):
     def test_middleware_handles_exceptions_gracefully(self):
         """Test that middleware handles exceptions without breaking the app."""
         # Create a mock request that will cause an exception
-        request = self.factory.post('/api/token/')
+        request = self.factory.post('/api/user/token/')
         request.user = None  # This will cause an exception
 
         # Mock response
@@ -165,7 +183,7 @@ class LoginTrackingMiddlewareTests(TestCase):
     def test_middleware_only_tracks_auth_endpoints(self):
         """Test that middleware only tracks authentication endpoints."""
         # Test auth endpoint
-        request = self.factory.post('/api/token/')
+        request = self.factory.post('/api/user/token/')
         request.user = self.user
         is_auth_endpoint = any(pattern.match(request.path)
                                for pattern in self.middleware.auth_patterns)
@@ -178,9 +196,9 @@ class LoginTrackingMiddlewareTests(TestCase):
         self.assertFalse(is_auth_endpoint)
 
     def test_middleware_creates_activity_for_authenticated_user_only(self):
-        """Test that middleware only creates activities for auth users."""
+        """Test that middleware creates activities for users."""
         # Create request with authenticated user
-        request = self.factory.post('/api/token/')
+        request = self.factory.post('/api/user/token/')
         request.user = self.user
 
         # Mock response
@@ -193,10 +211,10 @@ class LoginTrackingMiddlewareTests(TestCase):
         activities = LoginActivity.objects.filter(user=self.user)
         self.assertEqual(activities.count(), 1)
 
-        # Create request with unauthenticated user
+        # Create request with unauthenticated user but no email in body
         request.user = Mock(is_authenticated=False)
 
-        # Call middleware again
+        # Call middleware again without email lookup
         self.middleware._track_login_activity(request, response)
 
         # Should not create additional activity
