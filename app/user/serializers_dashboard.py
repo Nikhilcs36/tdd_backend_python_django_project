@@ -1,4 +1,6 @@
 """Serializers for dashboard API with TypeScript-friendly responses."""
+from typing import Optional
+
 from rest_framework import serializers
 from core.models import LoginActivity, User
 from datetime import timedelta
@@ -22,7 +24,7 @@ class LoginActivitySerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_timestamp(self, obj):
+    def get_timestamp(self, obj) -> Optional[str]:
         """Return timestamp in local timezone."""
         if obj.timestamp:
             local_dt = timezone.localtime(obj.timestamp)
@@ -41,7 +43,7 @@ class UserStatsSerializer(serializers.Serializer):
     total_successful_logins = serializers.IntegerField()
     total_failed_logins = serializers.IntegerField()
 
-    def get_last_login(self, obj):
+    def get_last_login(self, obj) -> Optional[str]:
         """Return last_login in local timezone."""
         last_login = obj.get('last_login')
         if last_login:
@@ -359,14 +361,15 @@ def get_login_trends_data(user, start_date=None, end_date=None):
     if start_date is None:
         start_date = timezone.now() - timedelta(days=30)
     if end_date is None:
-        end_date = timezone.now()
+        # Add buffer to include activities created in the same minute
+        end_date = timezone.now() + timedelta(minutes=1)
 
     # Optimized query using conditional aggregation
     login_data = LoginActivity.objects.filter(
         user=user,
         timestamp__range=(start_date, end_date)
     ).annotate(
-        date=TruncDate('timestamp')
+        date=TruncDate('timestamp', tzinfo=timezone.utc)
     ).values('date').annotate(
         successful=Count('id', filter=Q(success=True)),
         failed=Count('id', filter=Q(success=False))
@@ -631,14 +634,15 @@ def get_combined_login_trends_data(users, start_date=None, end_date=None):
     if start_date is None:
         start_date = timezone.now() - timedelta(days=30)
     if end_date is None:
-        end_date = timezone.now()
+        # Add buffer to include activities created in the same minute
+        end_date = timezone.now() + timedelta(minutes=1)
 
     # Get login data for all users
     login_data = LoginActivity.objects.filter(
         user__in=users,
         timestamp__range=(start_date, end_date)
     ).annotate(
-        date=TruncDate('timestamp')
+        date=TruncDate('timestamp', tzinfo=timezone.utc)
     ).values('date').annotate(
         successful=Count('id', filter=Q(success=True)),
         failed=Count('id', filter=Q(success=False))
