@@ -1,6 +1,8 @@
 """Middleware for tracking user login activities."""
+import json
 import re
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 from core.models import LoginActivity
 
 
@@ -20,6 +22,57 @@ def get_user_agent(request):
     return request.META.get('HTTP_USER_AGENT', '')[:500]
 
 
+def _extract_email_from_request(request):
+    """Extract email from request body before DRF consumes it."""
+    email = None
+
+    # Check if body was already parsed (DRF/APIClient)
+    if hasattr(request, 'data') and isinstance(request.data, dict):
+        email = request.data.get('email')
+    # Try POST data
+    elif request.POST:
+        email = request.POST.get('email')
+    # Try JSON body
+    elif request.content_type == 'application/json':
+        try:
+            body = request.body.decode('utf-8')
+            if body:
+                data = json.loads(body)
+                email = data.get('email')
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+    return email
+
+
+def _get_user_from_request(request, pre_extracted_email=None):
+    """
+    Extract user from request.
+
+    For JWT endpoints, authentication happens inside the view,
+    so request.user may be AnonymousUser even for valid credentials.
+    Try to look up the user from the request body or pre-extracted email.
+    """
+    # First, check if request.user is authenticated
+    user = getattr(request, 'user', None)
+    if user and user.is_authenticated:
+        return user
+
+    # Try to get email from pre-extracted value or request body
+    email = pre_extracted_email
+    if not email:
+        email = _extract_email_from_request(request)
+
+    if email:
+        UserModel = get_user_model()
+        try:
+            return UserModel.objects.get(email=email)
+        except UserModel.DoesNotExist:
+            pass
+
+    return None
+
+
 class LoginTrackingMiddleware:
     """Middleware to track user login activities."""
 
@@ -28,7 +81,7 @@ class LoginTrackingMiddleware:
         self.get_response = get_response
         # Regex pattern to match authentication endpoints
         self.auth_patterns = [
-            re.compile(r'^/api/token/?$'),  # Token endpoint  # noqa: E501
+            re.compile(r'^/api/user/token/?$'),  # Token endpoint  # noqa: E501
         ]
 
     def __call__(self, request):
@@ -39,31 +92,35 @@ class LoginTrackingMiddleware:
         )
 
         if is_auth_endpoint:
+            # Pre-extract email before DRF consumes the request body
+            pre_extracted_email = _extract_email_from_request(request)
             # Process the request first to get the response
             response = self.get_response(request)
 
             # Track login activity based on response status and authentication
-            self._track_login_activity(request, response)
+            self._track_login_activity(
+                request, response, email=pre_extracted_email)
 
             return response
         else:
             # For non-auth endpoints, just process normally
             return self.get_response(request)
 
-    def _track_login_activity(self, request, response):
+    def _track_login_activity(self, request, response, email=None):
         """Track login activity based on request and response."""
         try:
             # Determine if login was successful
-            # Successful if user is authenticated and response is 200
-            user = getattr(request, 'user', None)
-            is_authenticated = user and user.is_authenticated
-            is_successful = response.status_code == 200 and is_authenticated
+            # Successful if response is 200
+            is_successful = response.status_code == 200
 
             # Get client information
             ip_address = get_client_ip(request)
             user_agent = get_user_agent(request)
 
-            # Only track if we have a user (even for failed attempts)
+            # Try to get the user (from authenticated request or body lookup)
+            user = _get_user_from_request(request, pre_extracted_email=email)
+
+            # Only track if we have a valid user object
             if user and hasattr(user, 'id'):
                 LoginActivity.objects.create(
                     user=user,

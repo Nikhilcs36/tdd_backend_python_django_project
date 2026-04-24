@@ -5,7 +5,6 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-from core.models import LoginActivity
 from .fields import RelativeURLFileField
 from .validators import (
     validate_username,
@@ -194,7 +193,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # First check if user exists
         try:
-            existing_user = get_user_model().objects.get(email=email)
+            get_user_model().objects.get(email=email)
 
             # User exists, try to authenticate
             user = authenticate(
@@ -205,13 +204,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
             if not user:
                 # User exists but authentication failed (wrong password)
-                self._create_login_activity(existing_user, False)
                 self.fail('password_incorrect')
 
             # Authentication successful, check email verification
             if not user.email_verified:
                 # Log failed attempt (unverified email)
-                self._create_login_activity(user, False)
                 raise serializers.ValidationError(
                     {'detail': 'email_not_verified'}
                 )
@@ -238,41 +235,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Add email verification status
         data.update({'email_verified': user.email_verified})
 
-        # Create successful login activity record
-        self._create_login_activity(user, True)
-
         return data
-
-    def _create_login_activity(self, user, success):
-        """Create a login activity record."""
-        request = self.context.get('request')
-        if not request:
-            return
-
-        # Get IP address from request
-        ip_address = self._get_client_ip(request)
-
-        # Get user agent from request
-        user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
-
-        # Only create login activity for existing users
-        # (user will be None for non-existent users, so we skip logging)
-        if user:
-            LoginActivity.objects.create(
-                user=user,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                success=success
-            )
-
-    def _get_client_ip(self, request):
-        """Get client IP address from request."""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip or '0.0.0.0'
 
 
 class LogoutSerializer(serializers.Serializer):
