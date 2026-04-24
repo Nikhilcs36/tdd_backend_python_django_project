@@ -1,7 +1,7 @@
 """Views for dashboard API endpoints."""
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.utils import timezone
 from drf_spectacular.utils import (
     extend_schema, OpenApiParameter, OpenApiExample
@@ -49,10 +49,14 @@ class DateFilteredAPIView(generics.GenericAPIView):
             try:
                 if start_date:
                     start_date = timezone.make_aware(
-                        datetime.strptime(start_date, '%Y-%m-%d'))
+                        datetime.strptime(start_date, '%Y-%m-%d'),
+                        timezone=timezone.utc)
                 if end_date:
                     end_date = timezone.make_aware(
-                        datetime.strptime(end_date, '%Y-%m-%d'))
+                        datetime.strptime(end_date, '%Y-%m-%d'),
+                        timezone=timezone.utc)
+                    # Make end_date inclusive of the full day
+                    end_date = end_date + timedelta(days=1)
             except ValueError:
                 raise ValidationError(
                     {'error': 'Invalid date format. Use YYYY-MM-DD format.'}
@@ -138,10 +142,12 @@ class UserStatsView(generics.GenericAPIView):
             try:
                 if start_date:
                     start_date = timezone.make_aware(
-                        datetime.strptime(start_date, '%Y-%m-%d'))
+                        datetime.strptime(start_date, '%Y-%m-%d'),
+                        timezone=timezone.utc)
                 if end_date:
                     end_date = timezone.make_aware(
-                        datetime.strptime(end_date, '%Y-%m-%d'))
+                        datetime.strptime(end_date, '%Y-%m-%d'),
+                        timezone=timezone.utc)
             except ValueError:
                 return Response(
                     {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
@@ -408,10 +414,12 @@ class AdminDashboardView(generics.GenericAPIView):
             try:
                 if start_date:
                     start_date = timezone.make_aware(
-                        datetime.strptime(start_date, '%Y-%m-%d'))
+                        datetime.strptime(start_date, '%Y-%m-%d'),
+                        timezone=timezone.utc)
                 if end_date:
                     end_date = timezone.make_aware(
-                        datetime.strptime(end_date, '%Y-%m-%d'))
+                        datetime.strptime(end_date, '%Y-%m-%d'),
+                        timezone=timezone.utc)
             except ValueError:
                 return Response(
                     {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
@@ -609,7 +617,8 @@ class LoginTrendsView(generics.GenericAPIView):
         ]
     )
     def get(self, request):
-        """Return login trends data for the authenticated user or specified users."""  # noqa: E501
+        """Return login trends data for the authenticated user or
+        specified users."""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
@@ -619,10 +628,12 @@ class LoginTrendsView(generics.GenericAPIView):
         try:
             if start_date:
                 start_date = timezone.make_aware(
-                    datetime.strptime(start_date, '%Y-%m-%d'))
+                    datetime.strptime(start_date, '%Y-%m-%d'),
+                    timezone=timezone.utc)
             if end_date:
                 end_date = timezone.make_aware(
-                    datetime.strptime(end_date, '%Y-%m-%d'))
+                    datetime.strptime(end_date, '%Y-%m-%d'),
+                    timezone=timezone.utc)
         except ValueError:
             return Response(
                 {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
@@ -634,7 +645,7 @@ class LoginTrendsView(generics.GenericAPIView):
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
-                    {'error': 'Admin permissions required to filter by role.'},  # noqa: E501
+                    {'error': 'Admin permissions required to filter by role.'},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -664,7 +675,8 @@ class LoginTrendsView(generics.GenericAPIView):
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
-                    {'error': 'Admin permissions required to filter by user IDs.'},  # noqa: E501
+                    {'error': 'Admin permissions required to filter by '
+                              'user IDs.'},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -805,7 +817,8 @@ class LoginComparisonView(generics.GenericAPIView):
         ]
     )
     def get(self, request):
-        """Return login comparison data for the authenticated user or specified users."""  # noqa: E501
+        """Return login comparison data for the authenticated user or
+        specified users."""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
@@ -815,10 +828,12 @@ class LoginComparisonView(generics.GenericAPIView):
         try:
             if start_date:
                 start_date = timezone.make_aware(
-                    datetime.strptime(start_date, '%Y-%m-%d'))
+                    datetime.strptime(start_date, '%Y-%m-%d'),
+                    timezone=timezone.utc)
             if end_date:
                 end_date = timezone.make_aware(
-                    datetime.strptime(end_date, '%Y-%m-%d'))
+                    datetime.strptime(end_date, '%Y-%m-%d'),
+                    timezone=timezone.utc)
         except ValueError:
             return Response(
                 {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
@@ -830,7 +845,7 @@ class LoginComparisonView(generics.GenericAPIView):
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
-                    {'error': 'Admin permissions required to filter by role.'},  # noqa: E501
+                    {'error': 'Admin permissions required to filter by role.'},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -860,7 +875,8 @@ class LoginComparisonView(generics.GenericAPIView):
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
-                    {'error': 'Admin permissions required to filter by user IDs.'},  # noqa: E501
+                    {'error': 'Admin permissions required to filter by '
+                              'user IDs.'},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -1024,7 +1040,8 @@ class LoginDistributionView(generics.GenericAPIView):
         ]
     )
     def get(self, request):
-        """Return login distribution data for the authenticated user or specified users."""  # noqa: E501
+        """Return login distribution data for the authenticated user or
+        specified users."""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
@@ -1034,10 +1051,12 @@ class LoginDistributionView(generics.GenericAPIView):
         try:
             if start_date:
                 start_date = timezone.make_aware(
-                    datetime.strptime(start_date, '%Y-%m-%d'))
+                    datetime.strptime(start_date, '%Y-%m-%d'),
+                    timezone=timezone.utc)
             if end_date:
                 end_date = timezone.make_aware(
-                    datetime.strptime(end_date, '%Y-%m-%d'))
+                    datetime.strptime(end_date, '%Y-%m-%d'),
+                    timezone=timezone.utc)
         except ValueError:
             return Response(
                 {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
@@ -1049,7 +1068,7 @@ class LoginDistributionView(generics.GenericAPIView):
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
-                    {'error': 'Admin permissions required to filter by role.'},  # noqa: E501
+                    {'error': 'Admin permissions required to filter by role.'},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -1079,7 +1098,8 @@ class LoginDistributionView(generics.GenericAPIView):
             # Validate admin permissions
             if not (request.user.is_staff or request.user.is_superuser):
                 return Response(
-                    {'error': 'Admin permissions required to filter by user IDs.'},  # noqa: E501
+                    {'error': 'Admin permissions required to filter by '
+                              'user IDs.'},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -1198,10 +1218,12 @@ class AdminChartsView(generics.GenericAPIView):
         try:
             if start_date:
                 start_date = timezone.make_aware(
-                    datetime.strptime(start_date, '%Y-%m-%d'))
+                    datetime.strptime(start_date, '%Y-%m-%d'),
+                    timezone=timezone.utc)
             if end_date:
                 end_date = timezone.make_aware(
-                    datetime.strptime(end_date, '%Y-%m-%d'))
+                    datetime.strptime(end_date, '%Y-%m-%d'),
+                    timezone=timezone.utc)
         except ValueError:
             return Response(
                 {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
@@ -1303,7 +1325,8 @@ class UserSpecificStatsView(DateFilteredAPIView, generics.GenericAPIView):
             OpenApiExample(
                 "Permission Denied",
                 value={
-                    "error": "You do not have permission to access this user's data"  # noqa: E501
+                    "error": "You do not have permission to access this "
+                             "user's data"
                 },
                 response_only=True,
                 status_codes=["403"]
@@ -1318,7 +1341,8 @@ class UserSpecificStatsView(DateFilteredAPIView, generics.GenericAPIView):
     )
     def get(self, request, user_id):
         """
-        Return comprehensive statistics for a specific user with access control.  # noqa: E501
+        Return comprehensive statistics for a specific user with access
+        control.
 
         Args:
             request: HTTP request object
@@ -1445,7 +1469,8 @@ class UserSpecificLoginActivityView(DateFilteredAPIView, generics.ListAPIView):
             OpenApiExample(
                 "Permission Denied",
                 value={
-                    "error": "You do not have permission to access this user's data"  # noqa: E501
+                    "error": "You do not have permission to access this "
+                             "user's data"
                 },
                 response_only=True,
                 status_codes=["403"]
@@ -1460,8 +1485,8 @@ class UserSpecificLoginActivityView(DateFilteredAPIView, generics.ListAPIView):
     )
     def get(self, request, user_id):
         """
-        Return paginated login activity history for a specific user with access
-        control.
+        Return paginated login activity history for a specific user with
+        access control.
 
         Args:
             request: HTTP request object
@@ -1520,7 +1545,7 @@ class AdminUsersStatsView(generics.GenericAPIView):
         description=(
             "Retrieve comprehensive statistics for multiple users. Supports "
             "filtering by user IDs and active status. Returns a dictionary "
-            "with user IDs as keys and their statistics as values."  # noqa: E501
+            "with user IDs as keys and their statistics as values."
         ),
         parameters=[
             OpenApiParameter(
@@ -1596,7 +1621,8 @@ class AdminUsersStatsView(generics.GenericAPIView):
             OpenApiExample(
                 "Permission Denied",
                 value={
-                    "error": "You do not have permission to access this endpoint"  # noqa: E501
+                    "error": "You do not have permission to access this "
+                             "endpoint"
                 },
                 response_only=True,
                 status_codes=["403"]
