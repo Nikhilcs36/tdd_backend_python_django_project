@@ -383,6 +383,10 @@ def get_login_trends_data(user, start_date=None, end_date=None):
     # Generate all dates in range for consistent data structure
     current_date = start_date.date()
     end_date_date = end_date.date()
+    # If end_date has a time component (not exactly midnight),
+    # include the full day by treating it as the next day
+    if end_date.time() != timezone.datetime.min.time():
+        end_date_date += timedelta(days=1)
 
     # Create date to data mapping for fast lookup
     data_map = {}
@@ -394,7 +398,7 @@ def get_login_trends_data(user, start_date=None, end_date=None):
         }
 
     # Build complete data arrays
-    while current_date <= end_date_date:
+    while current_date < end_date_date:
         date_str = current_date.strftime('%Y-%m-%d')
         dates.append(date_str)
 
@@ -656,6 +660,10 @@ def get_combined_login_trends_data(users, start_date=None, end_date=None):
     # Generate all dates in range for consistent data structure
     current_date = start_date.date()
     end_date_date = end_date.date()
+    # If end_date has a time component (not exactly midnight),
+    # include the full day by treating it as the next day
+    if end_date.time() != timezone.datetime.min.time():
+        end_date_date += timedelta(days=1)
 
     # Create date to data mapping for fast lookup
     data_map = {}
@@ -667,7 +675,7 @@ def get_combined_login_trends_data(users, start_date=None, end_date=None):
         }
 
     # Build complete data arrays
-    while current_date <= end_date_date:
+    while current_date < end_date_date:
         date_str = current_date.strftime('%Y-%m-%d')
         dates.append(date_str)
 

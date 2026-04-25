@@ -1630,3 +1630,92 @@ class DashboardAPITests(TestCase):
                 'error': 'Invalid date format. Use YYYY-MM-DD format.',
             },
         )
+
+    # TDD: Tests for end-of-day inclusion bug
+    # (date filter should include full day)
+    def test_user_stats_includes_logins_on_last_day_of_range(self):
+        """Test that user stats includes logins occurring on the last day
+        of the date range, even if they are after midnight.
+
+        Regression test: the old code parsed end_date as
+        YYYY-MM-DD 00:00:00, which excluded any login after midnight
+        on the last day.
+        """
+        # Clear existing activities
+        LoginActivity.objects.filter(user=self.user).delete()
+
+        # Create a login at 3:00 PM today (after midnight)
+        today_3pm = timezone.now().replace(
+            hour=15, minute=0, second=0, microsecond=0
+        )
+        activity = LoginActivity.objects.create(
+            user=self.user,
+            ip_address='192.168.1.100',
+            user_agent='Test Browser',
+            success=True
+        )
+        activity.timestamp = today_3pm
+        activity.save()
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse('user:dashboard-stats')
+
+        # Query with today as both start and end date
+        today_str = today_3pm.strftime('%Y-%m-%d')
+
+        response = self.client.get(url, {
+            'start_date': today_str,
+            'end_date': today_str,
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # The login at 3 PM today MUST be included
+        self.assertEqual(
+            response.data['total_logins'],
+            1,
+            "Login at 3:00 PM on last day should be included in range"
+        )
+
+    def test_admin_dashboard_includes_logins_on_last_day_of_range(self):
+        """Test that admin dashboard includes logins occurring on the
+        last day of the date range, even if they are after midnight.
+
+        Regression test: the old code parsed end_date as
+        YYYY-MM-DD 00:00:00, which excluded any login after midnight
+        on the last day.
+        """
+        # Clear existing activities
+        LoginActivity.objects.filter(user=self.user).delete()
+
+        # Create a login at 3:00 PM today (after midnight)
+        today_3pm = timezone.now().replace(
+            hour=15, minute=0, second=0, microsecond=0
+        )
+        activity = LoginActivity.objects.create(
+            user=self.user,
+            ip_address='192.168.1.100',
+            user_agent='Test Browser',
+            success=True
+        )
+        activity.timestamp = today_3pm
+        activity.save()
+
+        self.client.force_authenticate(user=self.admin_user)
+        url = reverse('user:admin-dashboard')
+
+        # Query with today as both start and end date
+        today_str = today_3pm.strftime('%Y-%m-%d')
+
+        response = self.client.get(url, {
+            'user_ids[]': [self.user.id],
+            'start_date': today_str,
+            'end_date': today_str,
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # The login at 3 PM today MUST be included
+        self.assertEqual(
+            response.data['total_logins'],
+            1,
+            "Login at 3:00 PM on the last day should be included in date range"
+        )
