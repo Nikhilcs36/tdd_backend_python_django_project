@@ -65,7 +65,7 @@ class DateFilteredAPIView(generics.GenericAPIView):
         return start_date, end_date
 
 
-class UserStatsView(generics.GenericAPIView):
+class UserStatsView(DateFilteredAPIView, generics.GenericAPIView):
     """API endpoint to get user statistics."""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserStatsSerializer
@@ -134,25 +134,9 @@ class UserStatsView(generics.GenericAPIView):
     )
     def get(self, request):
         """Return comprehensive statistics for the authenticated user."""
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-
-        # Convert string dates to datetime objects if provided
-        if start_date or end_date:
-            try:
-                if start_date:
-                    start_date = timezone.make_aware(
-                        datetime.strptime(start_date, '%Y-%m-%d'),
-                        timezone=timezone.utc)
-                if end_date:
-                    end_date = timezone.make_aware(
-                        datetime.strptime(end_date, '%Y-%m-%d'),
-                        timezone=timezone.utc)
-            except ValueError:
-                return Response(
-                    {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        # Use base class method for consistent date parsing
+        # (includes +1 day to end_date for inclusive filtering)
+        start_date, end_date = self.get_date_filters(request)
 
         user_stats = get_user_stats(request.user, start_date, end_date)
         serializer = self.get_serializer(user_stats)
@@ -263,7 +247,7 @@ class LoginActivityView(DateFilteredAPIView, generics.ListAPIView):
         return queryset
 
 
-class AdminDashboardView(generics.GenericAPIView):
+class AdminDashboardView(DateFilteredAPIView, generics.GenericAPIView):
     """API endpoint to get admin dashboard data."""
     permission_classes = [IsStaffOrSuperUser]
     serializer_class = AdminDashboardSerializer
@@ -406,25 +390,16 @@ class AdminDashboardView(generics.GenericAPIView):
         me = request.query_params.get('me')
         user_ids = request.GET.getlist('user_ids[]')
         filter_type = request.query_params.get('filter')
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
 
-        # Parse and validate dates if provided
-        if start_date or end_date:
-            try:
-                if start_date:
-                    start_date = timezone.make_aware(
-                        datetime.strptime(start_date, '%Y-%m-%d'),
-                        timezone=timezone.utc)
-                if end_date:
-                    end_date = timezone.make_aware(
-                        datetime.strptime(end_date, '%Y-%m-%d'),
-                        timezone=timezone.utc)
-            except ValueError:
-                return Response(
-                    {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        # Use base class method for consistent date parsing
+        # (includes +1 day to end_date for inclusive filtering)
+        try:
+            start_date, end_date = self.get_date_filters(request)
+        except ValidationError as e:
+            return Response(
+                e.detail,
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Validate parameters regardless of precedence
         # Validate role parameter if provided
@@ -491,7 +466,7 @@ class AdminDashboardView(generics.GenericAPIView):
 
 
 # Chart Data API Views
-class LoginTrendsView(generics.GenericAPIView):
+class LoginTrendsView(DateFilteredAPIView, generics.GenericAPIView):
     """API endpoint to get login trends data for line charts."""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ChartDataSerializer
@@ -619,24 +594,16 @@ class LoginTrendsView(generics.GenericAPIView):
     def get(self, request):
         """Return login trends data for the authenticated user or
         specified users."""
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
         role = request.query_params.get('role')
 
-        # Convert string dates to datetime objects if provided
+        # Use base class method for consistent date parsing
+        # (includes +1 day to end_date for inclusive filtering)
         try:
-            if start_date:
-                start_date = timezone.make_aware(
-                    datetime.strptime(start_date, '%Y-%m-%d'),
-                    timezone=timezone.utc)
-            if end_date:
-                end_date = timezone.make_aware(
-                    datetime.strptime(end_date, '%Y-%m-%d'),
-                    timezone=timezone.utc)
-        except ValueError:
+            start_date, end_date = self.get_date_filters(request)
+        except ValidationError as e:
             return Response(
-                {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
+                e.detail,
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -710,7 +677,7 @@ class LoginTrendsView(generics.GenericAPIView):
         })
 
 
-class LoginComparisonView(generics.GenericAPIView):
+class LoginComparisonView(DateFilteredAPIView, generics.GenericAPIView):
     """API endpoint to get login comparison data for bar charts."""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ChartDataSerializer
@@ -819,24 +786,16 @@ class LoginComparisonView(generics.GenericAPIView):
     def get(self, request):
         """Return login comparison data for the authenticated user or
         specified users."""
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
         role = request.query_params.get('role')
 
-        # Convert string dates to datetime objects if provided
+        # Use base class method for consistent date parsing
+        # (includes +1 day to end_date for inclusive filtering)
         try:
-            if start_date:
-                start_date = timezone.make_aware(
-                    datetime.strptime(start_date, '%Y-%m-%d'),
-                    timezone=timezone.utc)
-            if end_date:
-                end_date = timezone.make_aware(
-                    datetime.strptime(end_date, '%Y-%m-%d'),
-                    timezone=timezone.utc)
-        except ValueError:
+            start_date, end_date = self.get_date_filters(request)
+        except ValidationError as e:
             return Response(
-                {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
+                e.detail,
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -910,7 +869,7 @@ class LoginComparisonView(generics.GenericAPIView):
         })
 
 
-class LoginDistributionView(generics.GenericAPIView):
+class LoginDistributionView(DateFilteredAPIView, generics.GenericAPIView):
     """API endpoint to get login distribution data for pie charts."""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ChartDataSerializer
@@ -1042,24 +1001,16 @@ class LoginDistributionView(generics.GenericAPIView):
     def get(self, request):
         """Return login distribution data for the authenticated user or
         specified users."""
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
         user_ids = request.GET.getlist('user_ids[]')
         role = request.query_params.get('role')
 
-        # Convert string dates to datetime objects if provided
+        # Use base class method for consistent date parsing
+        # (includes +1 day to end_date for inclusive filtering)
         try:
-            if start_date:
-                start_date = timezone.make_aware(
-                    datetime.strptime(start_date, '%Y-%m-%d'),
-                    timezone=timezone.utc)
-            if end_date:
-                end_date = timezone.make_aware(
-                    datetime.strptime(end_date, '%Y-%m-%d'),
-                    timezone=timezone.utc)
-        except ValueError:
+            start_date, end_date = self.get_date_filters(request)
+        except ValidationError as e:
             return Response(
-                {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
+                e.detail,
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -1133,7 +1084,7 @@ class LoginDistributionView(generics.GenericAPIView):
         })
 
 
-class AdminChartsView(generics.GenericAPIView):
+class AdminChartsView(DateFilteredAPIView, generics.GenericAPIView):
     """API endpoint to get admin-level chart data."""
     permission_classes = [IsStaffOrSuperUser]
     serializer_class = ChartDataSerializer
@@ -1211,22 +1162,13 @@ class AdminChartsView(generics.GenericAPIView):
     )
     def get(self, request):
         """Return comprehensive chart data for administrators."""
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-
-        # Convert string dates to datetime objects if provided
+        # Use base class method for consistent date parsing
+        # (includes +1 day to end_date for inclusive filtering)
         try:
-            if start_date:
-                start_date = timezone.make_aware(
-                    datetime.strptime(start_date, '%Y-%m-%d'),
-                    timezone=timezone.utc)
-            if end_date:
-                end_date = timezone.make_aware(
-                    datetime.strptime(end_date, '%Y-%m-%d'),
-                    timezone=timezone.utc)
-        except ValueError:
+            start_date, end_date = self.get_date_filters(request)
+        except ValidationError as e:
             return Response(
-                {'error': 'Invalid date format. Use YYYY-MM-DD format.'},
+                e.detail,
                 status=status.HTTP_400_BAD_REQUEST
             )
 
