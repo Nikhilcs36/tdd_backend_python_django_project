@@ -29,7 +29,6 @@ class DashboardAPITests(TestCase):
             email='admin@example.com',
             password='adminpass123'
         )
-
         # Create some login activities for testing
         self._create_test_login_activities()
 
@@ -225,7 +224,6 @@ class DashboardAPITests(TestCase):
                 key, r'^\d{4}-\d{1,2}$',
                 f"Weekly data key '{key}' doesn't match YYYY-WW format"
             )
-
         # Verify monthly_data format (YYYY-MM format like "2025-12")
         for key in response.data['monthly_data'].keys():
             self.assertRegex(

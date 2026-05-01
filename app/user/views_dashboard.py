@@ -309,12 +309,12 @@ class AdminDashboardView(DateFilteredAPIView, generics.GenericAPIView):
                     "Filter users by type: 'all', 'admin_only',"
                     " 'regular_users', 'me'"
                 ),
-            enum=[
-                "all",
-                "admin_only",
-                "regular_users",
-                "me"
-            ],
+                enum=[
+                    "all",
+                    "admin_only",
+                    "regular_users",
+                    "me"
+                ],
                 required=False
             ),
             OpenApiParameter(
