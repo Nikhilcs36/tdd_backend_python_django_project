@@ -257,7 +257,8 @@ def get_admin_dashboard_data(
         (takes precedence over role and user_ids)
         user_ids: Optional list of user IDs to filter by
         (takes precedence over role)
-        filter_type: Optional user type filter ('admin_only', 'regular_users', 'me')
+        filter_type: Optional user type filter
+        ('admin_only', 'regular_users', 'me')
         start_date: Optional start date for filtering login activities
         end_date: Optional end date for filtering login activities
     """
