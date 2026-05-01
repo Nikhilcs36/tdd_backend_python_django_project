@@ -126,14 +126,12 @@ class DashboardAPITests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('total_users', response.data)
-        self.assertIn('active_users', response.data)
         self.assertIn('total_logins', response.data)
         self.assertIn('login_activity', response.data)
         self.assertIn('user_growth', response.data)
 
         # Verify data types
         self.assertIsInstance(response.data['total_users'], int)
-        self.assertIsInstance(response.data['active_users'], int)
         self.assertIsInstance(response.data['total_logins'], int)
         self.assertIsInstance(response.data['login_activity'], list)
         self.assertIsInstance(response.data['user_growth'], dict)
@@ -539,7 +537,6 @@ class DashboardAPITests(TestCase):
         # Should show data for only the current admin user
         # total_users should be 1 (only current admin)
         self.assertEqual(response.data['total_users'], 1)
-        self.assertEqual(response.data['active_users'], 1)
 
         # total_logins should be only current admin's logins (2)
         self.assertEqual(response.data['total_logins'], 2)
@@ -572,7 +569,6 @@ class DashboardAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Should show only current admin user's data, not regular users
         self.assertEqual(response.data['total_users'], 1)
-        self.assertEqual(response.data['active_users'], 1)
 
     # Phase 1: Parameter Acceptance & Validation
     # Test Cycle 1.1: user_ids[] parameter
@@ -681,7 +677,6 @@ class DashboardAPITests(TestCase):
         for filter_value in [
             'admin_only',
             'regular_users',
-            'active_only',
             'me'
         ]:
             response = self.client.get(url, {'filter': filter_value})
@@ -1104,57 +1099,6 @@ class DashboardAPITests(TestCase):
         # 7 from setUp user (5 successful + 2 failed) + 3 + 1 = 11 total
         self.assertEqual(response.data['total_logins'], 11)
 
-    def test_admin_dashboard_filter_active_only(self):
-        """Test that filter=active_only shows only active users."""
-        # Create active and inactive users
-        active_user = User.objects.create_user(
-            username='activeuser',
-            email='active@example.com',
-            password='userpass123',
-            is_active=True
-        )
-        inactive_user = User.objects.create_user(
-            username='inactiveuser',
-            email='inactive@example.com',
-            password='userpass123',
-            is_active=False
-        )
-
-        # Clear existing activities
-        LoginActivity.objects.filter(
-            user__in=[active_user, inactive_user]).delete()
-
-        # Create activities for both users
-        for i in range(2):
-            LoginActivity.objects.create(
-                user=active_user,
-                ip_address=f'192.168.1.{i+1}',
-                user_agent=f'Active Browser {i+1}',
-                success=True
-            ).save()
-
-        for i in range(3):
-            LoginActivity.objects.create(
-                user=inactive_user,
-                ip_address=f'192.168.2.{i+1}',
-                user_agent=f'Inactive Browser {i+1}',
-                success=True
-            ).save()
-
-        self.client.force_authenticate(user=self.admin_user)
-        url = reverse('user:admin-dashboard')
-
-        # Test filter=active_only
-        response = self.client.get(url, {'filter': 'active_only'})
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Should show only active users (including admin and setUp user)
-        # Total active users: self.admin_user + self.user + active_user = 3
-        self.assertEqual(response.data['total_users'], 3)
-        # Should show active user logins (2 from active_user)
-        # Note: This might include other activities too
-        self.assertGreaterEqual(response.data['total_logins'], 2)
-
     def test_admin_dashboard_filter_me_shows_current_user_data(self):
         """
         Test that filter=me shows only current authenticated
@@ -1201,7 +1145,6 @@ class DashboardAPITests(TestCase):
         # Should show data for only the current admin user
         # total_users should be 1 (only current admin)
         self.assertEqual(response.data['total_users'], 1)
-        self.assertEqual(response.data['active_users'], 1)
 
         # total_logins should be only current admin's logins (2)
         self.assertEqual(response.data['total_logins'], 2)

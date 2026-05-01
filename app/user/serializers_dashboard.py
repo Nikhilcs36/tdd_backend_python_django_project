@@ -58,7 +58,6 @@ class AdminDashboardSerializer(serializers.Serializer):
     """Serializer for admin dashboard data."""
 
     total_users = serializers.IntegerField()
-    active_users = serializers.IntegerField()
     total_logins = serializers.IntegerField()
     total_successful_logins = serializers.IntegerField()
     total_failed_logins = serializers.IntegerField()
@@ -258,8 +257,7 @@ def get_admin_dashboard_data(
         (takes precedence over role and user_ids)
         user_ids: Optional list of user IDs to filter by
         (takes precedence over role)
-        filter_type: Optional user type filter ('admin_only', 'regular_users',
-        'active_only', 'inactive_only')
+        filter_type: Optional user type filter ('admin_only', 'regular_users', 'me')
         start_date: Optional start date for filtering login activities
         end_date: Optional end date for filtering login activities
     """
@@ -291,9 +289,6 @@ def get_admin_dashboard_data(
         elif filter_type == 'regular_users':
             users = users.filter(is_staff=False, is_superuser=False)
             login_filter = Q(user__in=users)
-        elif filter_type == 'active_only':
-            users = users.filter(is_active=True)
-            login_filter = Q(user__in=users)
         elif filter_type == 'me':
             # When filter_type='me', we need the me parameter to be passed
             # This will be handled in the view by setting me=request.user
@@ -313,7 +308,6 @@ def get_admin_dashboard_data(
 
     # User statistics
     total_users = users.count()
-    active_users = users.filter(is_active=True).count()
     total_logins = LoginActivity.objects.filter(login_filter).count()
 
     # Calculate successful and failed login counts
@@ -343,7 +337,6 @@ def get_admin_dashboard_data(
 
     return {
         'total_users': total_users,
-        'active_users': active_users,
         'total_logins': total_logins,
         'total_successful_logins': total_successful_logins,
         'total_failed_logins': total_failed_logins,

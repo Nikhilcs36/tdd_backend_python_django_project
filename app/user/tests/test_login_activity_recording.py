@@ -122,14 +122,12 @@ class LoginActivityRecordingTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('total_users', response.data)
-        self.assertIn('active_users', response.data)
         self.assertIn('total_logins', response.data)
         self.assertIn('login_activity', response.data)
         self.assertIn('user_growth', response.data)
 
         # Verify data types
         self.assertIsInstance(response.data['total_users'], int)
-        self.assertIsInstance(response.data['active_users'], int)
         self.assertIsInstance(response.data['total_logins'], int)
         self.assertIsInstance(response.data['login_activity'], list)
         self.assertIsInstance(response.data['user_growth'], dict)
