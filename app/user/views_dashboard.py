@@ -257,7 +257,7 @@ class AdminDashboardView(DateFilteredAPIView, generics.GenericAPIView):
         summary="Get Admin Dashboard Data",
         description=(
             "Retrieve comprehensive dashboard data for administrators "
-            "including total users, active users, total logins, recent "
+            "including total users, total logins, recent "
             "login activity, and user growth statistics. Supports various "
             "filtering options for dynamic statistics."
         ),
@@ -307,15 +307,14 @@ class AdminDashboardView(DateFilteredAPIView, generics.GenericAPIView):
                 location=OpenApiParameter.QUERY,
                 description=(
                     "Filter users by type: 'all', 'admin_only',"
-                    " 'regular_users', 'active_only', 'me'"
+                    " 'regular_users', 'me'"
                 ),
-                enum=[
-                    "all",
-                    "admin_only",
-                    "regular_users",
-                    "active_only",
-                    "me"
-                ],
+            enum=[
+                "all",
+                "admin_only",
+                "regular_users",
+                "me"
+            ],
                 required=False
             ),
             OpenApiParameter(
@@ -339,7 +338,6 @@ class AdminDashboardView(DateFilteredAPIView, generics.GenericAPIView):
                 "Successful Response - All Users",
                 value={
                     "total_users": 150,
-                    "active_users": 125,
                     "total_logins": 2540,
                     "total_successful_logins": 2400,
                     "total_failed_logins": 140,
@@ -365,7 +363,6 @@ class AdminDashboardView(DateFilteredAPIView, generics.GenericAPIView):
                 "Successful Response - Regular Users Only",
                 value={
                     "total_users": 125,
-                    "active_users": 100,
                     "total_logins": 1800,
                     "login_activity": [
                         {
@@ -414,13 +411,12 @@ class AdminDashboardView(DateFilteredAPIView, generics.GenericAPIView):
             'all',
             'admin_only',
             'regular_users',
-            'active_only',
             'me'
         ]:
             return Response(
                 {'error': (
                     'Invalid filter. Must be one of:'
-                    'all, admin_only, regular_users, active_only, me.'
+                    'all, admin_only, regular_users, me.'
                 )
                 },
                 status=status.HTTP_400_BAD_REQUEST
