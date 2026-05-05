@@ -6,6 +6,18 @@ This repository contains the backend code for a comprehensive **Login Tracking D
 
 The primary focus of this project is the **Login Tracking Dashboard**, which offers real-time analytics and statistics about user login behavior, trends, and patterns. The system includes secure authentication mechanisms, user management, and role-based dashboard access to ensure data security and proper access control.
 
+---
+
+## Frontend
+
+This backend project is designed to pair with a React frontend application built with TypeScript, Vite, and Vitest.
+
+- **Frontend Repository**: [tdd_react_typescript_vite_vitest_project](https://github.com/Nikhilcs36/tdd_react_typescript_vite_vitest_project)
+
+The frontend and backend communicate over a shared Docker network (`tdd-network`). See the [Frontend Integration](#frontend-integration) section for details.
+
+---
+
 ## Development Methodology: Test-Driven Development (TDD)
 
 This project was built using **Test-Driven Development (TDD)**, a software development approach where tests are written before the actual implementation code. The TDD process follows a simple cycle:
@@ -22,17 +34,6 @@ This project was built using **Test-Driven Development (TDD)**, a software devel
 
 The TDD approach was particularly valuable for building the Login Tracking Dashboard, ensuring that all analytics features work correctly and can be extended safely.
 
-## Primary Feature: Login Tracking Dashboard
-
-The **Login Tracking Dashboard** is the core feature of this application, providing:
-
-- **Real-time Login Statistics**: Track user login counts, patterns, and trends
-- **Advanced Analytics**: Weekly and monthly login distribution analysis
-- **User-specific Dashboard**: Individual user login activity and statistics
-- **Admin Dashboard**: Comprehensive admin interface with user management
-- **Login Trends**: Visual representation of login patterns over time
-- **Comparison Tools**: Compare login activities across different time periods
-- **Security Monitoring**: Track login attempts and security events
 
 ## Features
 
@@ -46,12 +47,17 @@ The **Login Tracking Dashboard** is the core feature of this application, provid
 - **Distribution Analysis**: Analyze login distribution by time of day, day of week, etc.
 - **Login Attempt Analytics**: Monitor login success and failure rates, including attempt patterns
 - **Custom Date Range Filters**: Filter dashboard data by specific date ranges for flexible analysis
+- **Combined Chart Data**: Admin can view combined login trends/comparison/distribution data for multiple users using `user_ids[]` parameter
+- **Role-based Chart Filtering**: Filter charts and dashboard data by user role (`admin` / `regular`)
+- **Batch User Statistics**: Admin can retrieve statistics for multiple users with optional active status filtering
 
 ### User Management
-- **Custom User Model**: Advanced user management with username, email, and profile images
-- **User Registration & Authentication**: Secure user registration and login system
-- **Profile Management**: Users can manage their profiles and view personal statistics
+- **Custom User Model**: Extends Django's `AbstractBaseUser` with built-in login statistics tracking (`login_count`, `weekly_logins`, `monthly_logins`), email verification system (`email_verified`, verification tokens), password reset tokens, and automatic profile image cleanup on account deletion
+- **User Registration & Authentication**: Secure user registration and login system with email verification requirement
+- **Profile Management**: Users can manage their profiles, upload profile images (JPG/JPEG/PNG only, max 2MB), and view personal statistics
 - **Role-based Access**: Different dashboard views for regular users and administrators
+- **User Filtering**: List users with role-based filtering (`admin`/`regular`) and `me` parameter
+- **Pagination**: Customizable pagination for user listings and login activity
 
 ### User Access Levels Comparison
 
@@ -69,13 +75,33 @@ The **Login Tracking Dashboard** is the core feature of this application, provid
 | View own login patterns (success/failed attempts) | ✅ | ✅ |
 | Monitor system-wide security events | ❌ | ✅ |
 | Access comprehensive charts | Limited | Full access |
+| View combined chart data (multiple users) | ❌ | ✅ |
+| Filter data by user role | ❌ | ✅ |
+| Access batch user statistics | ❌ | ✅ |
+| View other users' login activity | ❌ | ✅ |
 
 ### Authentication & Security
 - **JWT Token Authentication**: Secure token-based authentication using DRF SimpleJWT
-- **Email Verification**: Token-based email verification system for account activation
-- **Password Reset**: Secure password reset functionality with token validation
-- **Login Activity Tracking**: Detailed tracking of all login attempts including success/failed attempts and IP addresses
+- **JWT Token Blacklisting**: Logout endpoint blacklists refresh tokens, preventing reuse
+- **Email-based Login**: Users can log in using their email address instead of username (via custom `EmailBackend` authentication backend)
+- **Custom JWT Exception Handler**: Standardized, user-friendly error messages for invalid or expired tokens
+- **Email Verification**: Token-based email verification system for account activation (24-hour token expiration)
+- **Welcome Email**: Automated welcome email sent after successful email verification
+- **Password Reset**: Secure password reset functionality with token validation (1-hour token expiration)
+- **Login Activity Tracking**: Detailed tracking of all login attempts via `LoginTrackingMiddleware`, including success/failed attempts, IP addresses, and user agents
+- **Login Activity Model**: Persistent storage of login attempts with timestamp, IP address, user agent, and success status
 - **Security Monitoring**: Monitor suspicious login activities, failed login attempts, and security patterns
+- **Role-based Permissions**: Custom permission classes (`IsSuperUser`, `IsStaffOrSuperUser`) for fine-grained access control
+- **Admin Bulk Email Verification**: Admin action to mark multiple users as email verified
+
+### Email & SMTP Configuration
+- **Gmail SMTP Integration**: Configured to send emails via Gmail SMTP server (`smtp.gmail.com`, port 587, TLS enabled)
+- **HTML Email Templates**: Professionally designed HTML email templates for:
+  - **Verification Email** — Account activation link with 24-hour expiry
+  - **Password Reset Email** — Secure password reset link with 1-hour expiry
+  - **Welcome Email** — Automated welcome message after successful verification
+- **Frontend-friendly URLs**: Email links point to the React frontend application (not the backend API), configured via `FRONTEND_BASE_URL` environment variable
+- **Environment Configuration**: Email credentials configured through `.env` file (`EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`)
 
 ### API & Documentation
 - **RESTful API**: Comprehensive REST API for all dashboard functionalities
@@ -86,26 +112,12 @@ The **Login Tracking Dashboard** is the core feature of this application, provid
 ### Deployment & Infrastructure
 - **Docker Support**: Containerized deployment with Docker and Docker Compose
 - **MySQL Database**: Robust database support for production environments
-- **Media File Handling**: Secure handling of user profile images
+- **Media File Handling**: Secure handling of user profile images with automatic cleanup on user deletion
+- **Relative URL File Field**: Custom file field that returns relative media URLs (e.g., `/media/uploads/user/image.jpg`) — frontend-friendly
 - **Environment Configuration**: Flexible configuration using environment variables
-
-## Authentication Methods
-
-### JWT Token Authentication
-Users can authenticate using JWT tokens for secure API access. The system provides:
-- Token generation and refresh endpoints
-- Secure token validation
-- Automatic token expiration handling
-
-### Email Verification
-- Users receive verification emails with secure tokens
-- Account activation through email links
-- Resend verification email functionality
-
-### Password Reset
-- Secure password reset token generation
-- Email-based password reset flow
-- Token expiration for security
+- **CORS Configuration**: Configured to allow requests from frontend development server (`http://localhost:5173`)
+- **Timezone**: Configured to `Asia/Kolkata`
+- **Max Upload Size**: 2MB limit for profile image uploads
 
 ## Installation
 
@@ -215,13 +227,15 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
+---
+
 ## API Endpoints
 
 ### Authentication Endpoints
-- `POST /api/user/token/` - Obtain JWT token
+- `POST /api/user/token/` - Obtain JWT token (accepts `email` and `password`)
 - `POST /api/user/token/refresh/` - Refresh JWT token
 - `POST /api/user/create/` - User registration
-- `GET /api/user/logout/` - User logout
+- `POST /api/user/logout/` - User logout (blacklists refresh token)
 - `POST /api/user/verify-email/` - Email verification
 - `POST /api/user/resend-verification/` - Resend verification email
 - `POST /api/user/password-reset/` - Request password reset
@@ -229,27 +243,34 @@ python manage.py runserver
 
 ### User Management Endpoints
 - `GET /api/user/me/` - Get current user profile
-- `GET /api/user/users/` - List all users (admin only)
-- `GET /api/user/users/<id>/` - Get specific user details
+- `PUT /api/user/me/` - Update current user profile (supports image upload)
+- `GET /api/user/users/` - List all users (admin only, supports `role` and `me` filters)
+- `GET /api/user/users/<id>/` - Get specific user details (superuser only)
+- `PUT /api/user/users/<id>/` - Update specific user (superuser only)
+- `DELETE /api/user/users/<id>/` - Delete specific user (superuser only)
 
 ### Dashboard Endpoints
-- `GET /api/user/dashboard/stats/` - User dashboard statistics
-- `GET /api/user/dashboard/login-activity/` - User login activity
-- `GET /api/user/dashboard/charts/trends/` - Login trends chart data
-- `GET /api/user/dashboard/charts/comparison/` - Login comparison data
-- `GET /api/user/dashboard/charts/distribution/` - Login distribution data
+- `GET /api/user/dashboard/stats/` - User dashboard statistics (supports `start_date`, `end_date`)
+- `GET /api/user/dashboard/login-activity/` - User login activity (supports `start_date`, `end_date`, pagination)
+- `GET /api/user/dashboard/charts/trends/` - Login trends chart data (supports `user_ids[]`, `role`, `me`, date filters)
+- `GET /api/user/dashboard/charts/comparison/` - Login comparison data (supports `user_ids[]`, `role`, `me`, date filters)
+- `GET /api/user/dashboard/charts/distribution/` - Login distribution data (supports `user_ids[]`, `role`, `me`, date filters)
 
 ### Admin Dashboard Endpoints
-- `GET /api/user/admin/dashboard/` - Admin dashboard overview
-- `GET /api/user/admin/charts/` - Admin charts data
-- `GET /api/user/admin/dashboard/users/stats/` - Admin users statistics
-- `GET /api/user/<user_id>/dashboard/stats/` - User-specific statistics (admin)
-- `GET /api/user/<user_id>/dashboard/login-activity/` - User-specific login activity (admin)
+- `GET /api/user/admin/dashboard/` - Admin dashboard overview (supports `user_ids[]`, `role`, `filter`, `me`, date filters)
+- `GET /api/user/admin/charts/` - Admin charts data (user growth, daily login activity, success ratio)
+- `GET /api/user/admin/dashboard/users/stats/` - Batch user statistics (admin only, supports `user_ids[]`, `is_active`)
+
+### Role-Based Dashboard Endpoints
+- `GET /api/user/<user_id>/dashboard/stats/` - User-specific statistics (role-based access)
+- `GET /api/user/<user_id>/dashboard/login-activity/` - User-specific login activity (role-based access)
 
 ### API Documentation
 - `GET /api/schema/` - API schema
 - `GET /api/docs/` - [Swagger UI documentation](http://localhost:8000/api/docs/)
 - `GET /api/redoc/` - ReDoc documentation
+
+---
 
 ## Usage
 
@@ -262,8 +283,8 @@ python manage.py runserver
 ### Using the Login Tracking Dashboard
 
 1. **User Registration**: Register a new user account
-2. **Email Verification**: Verify your email address
-3. **Login**: Authenticate using JWT tokens
+2. **Email Verification**: Verify your email address (check your email for the verification link)
+3. **Login**: Authenticate using your email and password
 4. **View Dashboard**: Access your personal dashboard with login statistics
 5. **Admin Access**: Administrators can access comprehensive admin dashboard
 
@@ -274,12 +295,48 @@ Integrate with the API using JWT authentication:
 # Get authentication token
 curl -X POST http://localhost:8000/api/user/token/ \
   -H "Content-Type: application/json" \
-  -d '{"username": "your_username", "password": "your_password"}'
+  -d '{"email": "your_email@example.com", "password": "your_password"}'
 
 # Use token to access protected endpoints
 curl -H "Authorization: JWT YOUR_JWT_TOKEN" \
   http://localhost:8000/api/user/dashboard/stats/
 ```
+
+---
+
+## Frontend Integration
+
+### Docker Network Communication
+
+This backend is designed to work with the frontend React application over a shared Docker network.
+
+**Backend Container**: `backend` (port 8000)
+**Frontend Container**: Connects to backend at `http://backend:8000`
+
+### Setup Steps
+
+1. **Create the shared Docker network** (one-time):
+```bash
+docker network create tdd-network
+```
+
+2. **Start the backend**:
+```bash
+docker-compose up -d
+```
+
+3. **Start the frontend** (separate project):
+   The frontend `docker-compose.yml` should use the same `tdd-network` network.
+
+> See `BACKEND_SETUP.md` and `FRONTEND_SETUP.md` for detailed setup guides.
+
+### CORS Configuration
+
+The backend is configured to accept requests from the frontend development server:
+- Frontend URL: `http://localhost:5173`
+- CORS credentials are enabled for authenticated requests
+
+---
 
 ## Customization
 
@@ -289,13 +346,23 @@ You can customize the application by modifying the following files:
 - `app/core/models.py` - Database models for User and LoginActivity
 - `app/core/views.py` - Core application views and logic
 - `app/core/admin.py` - Admin interface configuration
+- `app/core/email_service.py` - Email sending logic and URL building
+- `app/core/authentication.py` - Custom email-based authentication backend
+- `app/core/exceptions.py` - Custom exception handler for JWT errors
+- `app/core/middleware.py` - Login tracking middleware
+- `app/core/templates/email/` - HTML email templates
 
 ### User Management Files
 - `app/user/models.py` - User-related models (if any extensions)
 - `app/user/views.py` - User authentication and management views
 - `app/user/views_dashboard.py` - Dashboard views and analytics
 - `app/user/serializers.py` - API serializers for user data
+- `app/user/serializers_dashboard.py` - Dashboard data serializers
 - `app/user/urls.py` - URL routing for user endpoints
+- `app/user/permissions.py` - Custom permission classes
+- `app/user/validators.py` - Username, email, and password validators
+- `app/user/pagination.py` - Custom pagination classes
+- `app/user/fields.py` - Custom serializer fields (RelativeURLFileField)
 
 ### Configuration Files
 - `app/app/settings.py` - Django project settings
@@ -306,6 +373,8 @@ You can customize the application by modifying the following files:
 - Modify dashboard statistics in `app/user/views_dashboard.py`
 - Customize charts and analytics endpoints
 - Add new dashboard metrics and visualizations
+
+---
 
 ## Admin Interface
 
@@ -327,9 +396,13 @@ python manage.py runserver
 
 ### Admin Features
 - **User Management**: View, edit, and manage user accounts
+- **Email Verification**: View and manage email verification status
+- **Bulk Email Verification**: Mark multiple users as email verified via admin action
 - **Login Activity Monitoring**: Monitor all user login activities
 - **Dashboard Analytics**: Access comprehensive admin dashboard
 - **Security Monitoring**: Track security events and suspicious activities
+
+---
 
 ## License
 
