@@ -1,5 +1,6 @@
 """Serializers for dashboard API with TypeScript-friendly responses."""
 from typing import Optional
+import datetime
 
 from rest_framework import serializers
 from core.models import LoginActivity, User
@@ -450,7 +451,7 @@ def get_login_comparison_data(user, start_date=None, end_date=None):
         timestamp__range=(start_date, end_date),
         success=True
     ).annotate(
-        period=trunc_func('timestamp')
+        period=trunc_func('timestamp', tzinfo=datetime.timezone.utc)
     ).values('period').annotate(
         count=Count('id')
     ).order_by('period')
@@ -549,7 +550,7 @@ def get_combined_login_comparison_data(users, start_date=None, end_date=None):
         timestamp__range=(start_date, end_date),
         success=True
     ).annotate(
-        period=trunc_func('timestamp')
+        period=trunc_func('timestamp', tzinfo=datetime.timezone.utc)
     ).values('period').annotate(
         count=Count('id')
     ).order_by('period')
@@ -715,7 +716,7 @@ def get_admin_chart_data(start_date=None, end_date=None):
     user_growth = User.objects.filter(
         date_joined__range=(start_date, end_date)
     ).annotate(
-        month=TruncMonth('date_joined')
+        month=TruncMonth('date_joined', tzinfo=datetime.timezone.utc)
     ).values('month').annotate(
         count=Count('id')
     ).order_by('month')
@@ -725,7 +726,7 @@ def get_admin_chart_data(start_date=None, end_date=None):
         timestamp__range=(start_date, end_date),
         success=True
     ).annotate(
-        date=TruncDate('timestamp')
+        date=TruncDate('timestamp', tzinfo=datetime.timezone.utc)
     ).values('date').annotate(
         count=Count('id')
     ).order_by('date')
