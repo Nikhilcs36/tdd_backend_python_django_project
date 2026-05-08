@@ -1,7 +1,9 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from django.db.models import Q
+from django.conf import settings
 from drf_spectacular.utils import extend_schema, OpenApiParameter, \
     OpenApiExample
 from drf_spectacular.types import OpenApiTypes
@@ -17,6 +19,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from core.models import User
 from .permissions import IsSuperUser, IsStaffOrSuperUser
 from .pagination import UserPagination
+from .rsa_key_manager import load_public_key, get_public_key_path
 
 from core.email_service import (
     send_verification_email,
@@ -599,4 +602,30 @@ class ResetPasswordView(generics.GenericAPIView):
             return Response(
                 {'error': 'Invalid password reset token.'},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class PublicKeyView(APIView):
+    """Return the RSA public key for login credential encryption."""
+
+    permission_classes = []  # Public endpoint - no authentication required
+
+    def get(self, request):
+        """Return the RSA public key in PEM format."""
+        try:
+            public_key_path = get_public_key_path()
+            public_key = load_public_key(public_key_path)
+            from cryptography.hazmat.primitives import serialization
+            public_key_pem = public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+            return Response(
+                {'public_key': public_key_pem.decode('utf-8')},
+                status=status.HTTP_200_OK
+            )
+        except Exception:
+            return Response(
+                {'error': 'Public key not available.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
             )

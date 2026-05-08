@@ -9,12 +9,21 @@ from django.conf import settings
 import os
 import tempfile
 
+# Import RSA key manager for encrypted login tests
+from user.rsa_key_manager import (
+    generate_rsa_key_pair,
+    load_private_key,
+    load_public_key,
+    encrypt_data,
+)
+
 
 CREATE_USER_URL = reverse('user:create')
 TOKEN_URL = reverse('user:token')
 ME_URL = reverse('user:me')
 USERS_URL = reverse('user:users')
 LOGOUT_URL = reverse('user:logout')
+PUBLIC_KEY_URL = reverse('user:public-key')
 
 
 class PublicUserApiTests(TestCase):
@@ -552,6 +561,239 @@ class PublicUserApiTests(TestCase):
             'Password must have at least 1 uppercase, '
             '1 lowercase letter and 1 number'
         )
+
+    def test_public_key_endpoint_returns_success(self):
+        """Test that the public key endpoint returns 200."""
+        res = self.client.get(PUBLIC_KEY_URL)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_public_key_endpoint_returns_public_key(self):
+        """Test that the public key endpoint returns the public key."""
+        res = self.client.get(PUBLIC_KEY_URL)
+        self.assertIn('public_key', res.data)
+        self.assertIn('-----BEGIN PUBLIC KEY-----', res.data['public_key'])
+
+    def test_public_key_endpoint_returns_pem_format(self):
+        """Test that the public key is in valid PEM format."""
+        res = self.client.get(PUBLIC_KEY_URL)
+        public_key_pem = res.data['public_key']
+        self.assertTrue(public_key_pem.startswith('-----BEGIN PUBLIC KEY-----'))
+        self.assertIn('-----END PUBLIC KEY-----', public_key_pem)
+        # Verify it's a non-empty key
+        self.assertGreater(len(public_key_pem), 100)
+        # Verify key is valid by trying to load it
+        from cryptography.hazmat.primitives import serialization
+        key = serialization.load_pem_public_key(
+            public_key_pem.encode('utf-8')
+        )
+        self.assertIsNotNone(key)
+
+    def test_public_key_endpoint_when_keys_missing_returns_error(self):
+        """Test that public key endpoint returns error when key file is missing."""
+        import tempfile
+        temp_dir = tempfile.mkdtemp()
+        try:
+            missing_key_path = os.path.join(temp_dir, 'nonexistent.pem')
+            with self.settings(RSA_PUBLIC_KEY_PATH=missing_key_path):
+                res = self.client.get(PUBLIC_KEY_URL)
+                self.assertEqual(res.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+                self.assertIn('error', res.data)
+                self.assertEqual(res.data['error'], 'Public key not available.')
+        finally:
+            os.rmdir(temp_dir)
+
+
+class EncryptedLoginApiTests(TestCase):
+    """Test login with encrypted password."""
+
+    def setUp(self):
+        self.client = APIClient()
+        # Generate a temporary RSA key pair for testing
+        self.key_dir = tempfile.mkdtemp()
+        self.private_key_path = os.path.join(self.key_dir, 'private.pem')
+        self.public_key_path = os.path.join(self.key_dir, 'public.pem')
+        generate_rsa_key_pair(self.private_key_path, self.public_key_path)
+        self.private_key = load_private_key(self.private_key_path)
+        self.public_key = load_public_key(self.public_key_path)
+        # Override settings to use test keys
+        from django.test.utils import override_settings
+        self.settings_override = override_settings(
+            RSA_PRIVATE_KEY_PATH=self.private_key_path,
+            RSA_PUBLIC_KEY_PATH=self.public_key_path
+        )
+        self.settings_override.enable()
+
+    def tearDown(self):
+        self.settings_override.disable()
+        # Clean up temp files
+        for root, dirs, files in os.walk(self.key_dir, topdown=False):
+            for file in files:
+                os.remove(os.path.join(root, file))
+            for dir in dirs:
+                os.rmdir(os.path.join(root, dir))
+        os.rmdir(self.key_dir)
+
+    def _create_verified_user(self):
+        """Helper to create a verified user."""
+        user_details = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'Password123',
+        }
+        user = User.objects.create_user(**user_details)
+        user.email_verified = True
+        user.save()
+        return user, user_details
+
+    def test_login_with_encrypted_password_success(self):
+        """Test login with encrypted password succeeds."""
+        user, user_details = self._create_verified_user()
+
+        # Encrypt the password
+        encrypted_password = encrypt_data(
+            self.public_key, user_details['password']
+        )
+
+        payload = {
+            'email': user_details['email'],
+            'encrypted_password': encrypted_password.hex(),
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertIn('access', res.data)
+        self.assertIn('refresh', res.data)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['email'], user.email)
+
+    def test_login_with_encrypted_password_wrong_password(self):
+        """Test login with encrypted wrong password fails."""
+        user, user_details = self._create_verified_user()
+
+        # Encrypt wrong password
+        encrypted_password = encrypt_data(
+            self.public_key, 'WrongPassword123'
+        )
+
+        payload = {
+            'email': user_details['email'],
+            'encrypted_password': encrypted_password.hex(),
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertNotIn('access', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            res.data['non_field_errors'][0], 'password_incorrect'
+        )
+
+    def test_login_with_encrypted_password_nonexistent_user(self):
+        """Test login with encrypted password for non-existent user fails."""
+        encrypted_password = encrypt_data(
+            self.public_key, 'Password123'
+        )
+
+        payload = {
+            'email': 'nonexistent@example.com',
+            'encrypted_password': encrypted_password.hex(),
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertNotIn('access', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            res.data['non_field_errors'][0], 'no_active_account'
+        )
+
+    def test_login_with_encrypted_password_unverified_email(self):
+        """Test login with encrypted password for unverified email fails."""
+        user_details = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'Password123',
+        }
+        user = User.objects.create_user(**user_details)
+        user.email_verified = False
+        user.save()
+
+        encrypted_password = encrypt_data(
+            self.public_key, user_details['password']
+        )
+
+        payload = {
+            'email': user_details['email'],
+            'encrypted_password': encrypted_password.hex(),
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertNotIn('access', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['detail'][0], 'email_not_verified')
+
+    def test_login_with_invalid_encrypted_data_fails_gracefully(self):
+        """Test that invalid encrypted data doesn't crash the server."""
+        payload = {
+            'email': 'test@example.com',
+            'encrypted_password': 'this-is-not-valid-hex-data',
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        # Should fail gracefully, not 500
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_login_with_plaintext_password_still_works(self):
+        """Test that plaintext password login still works for backward compatibility."""
+        user, user_details = self._create_verified_user()
+
+        payload = {
+            'email': user_details['email'],
+            'password': user_details['password'],
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertIn('access', res.data)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_login_with_encrypted_password_blank_email(self):
+        """Test login with encrypted password and blank email."""
+        encrypted_password = encrypt_data(
+            self.public_key, 'Password123'
+        )
+
+        payload = {
+            'email': '',
+            'encrypted_password': encrypted_password.hex(),
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        self.assertNotIn('access', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['email'][0], 'email_required')
+
+    def test_encrypted_password_rejects_base64_encoded_data(self):
+        """Test that base64-encoded ciphertext (instead of hex) is rejected.
+
+        The frontend must send hex-encoded encrypted data, not base64.
+        This test prevents regression of the base64 vs hex format mismatch.
+        """
+        import base64
+        user, user_details = self._create_verified_user()
+
+        # Encrypt the password properly, then re-encode as base64
+        encrypted_bytes = encrypt_data(
+            self.public_key, user_details['password']
+        )
+        base64_encoded = base64.b64encode(encrypted_bytes).decode('ascii')
+
+        payload = {
+            'email': user_details['email'],
+            'encrypted_password': base64_encoded,
+        }
+        res = self.client.post(TOKEN_URL, payload)
+
+        # Should fail with format error, not crash
+        self.assertNotIn('access', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['encrypted_password'][0], 'Invalid encrypted password.')
 
 
 class PrivateUserApiTests(TestCase):
