@@ -577,7 +577,9 @@ class PublicUserApiTests(TestCase):
         """Test that the public key is in valid PEM format."""
         res = self.client.get(PUBLIC_KEY_URL)
         public_key_pem = res.data['public_key']
-        self.assertTrue(public_key_pem.startswith('-----BEGIN PUBLIC KEY-----'))
+        self.assertTrue(
+            public_key_pem.startswith('-----BEGIN PUBLIC KEY-----')
+        )
         self.assertIn('-----END PUBLIC KEY-----', public_key_pem)
         # Verify it's a non-empty key
         self.assertGreater(len(public_key_pem), 100)
@@ -589,16 +591,20 @@ class PublicUserApiTests(TestCase):
         self.assertIsNotNone(key)
 
     def test_public_key_endpoint_when_keys_missing_returns_error(self):
-        """Test that public key endpoint returns error when key file is missing."""
+        """Test that public key endpoint returns error on missing key."""
         import tempfile
         temp_dir = tempfile.mkdtemp()
         try:
             missing_key_path = os.path.join(temp_dir, 'nonexistent.pem')
             with self.settings(RSA_PUBLIC_KEY_PATH=missing_key_path):
                 res = self.client.get(PUBLIC_KEY_URL)
-                self.assertEqual(res.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+                self.assertEqual(
+                    res.status_code, status.HTTP_503_SERVICE_UNAVAILABLE
+                )
                 self.assertIn('error', res.data)
-                self.assertEqual(res.data['error'], 'Public key not available.')
+                self.assertEqual(
+                    res.data['error'], 'Public key not available.'
+                )
         finally:
             os.rmdir(temp_dir)
 
@@ -741,7 +747,7 @@ class EncryptedLoginApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_login_with_plaintext_password_still_works(self):
-        """Test that plaintext password login still works for backward compatibility."""
+        """Test that plaintext password login still works."""
         user, user_details = self._create_verified_user()
 
         payload = {
@@ -793,7 +799,9 @@ class EncryptedLoginApiTests(TestCase):
         # Should fail with format error, not crash
         self.assertNotIn('access', res.data)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(res.data['encrypted_password'][0], 'Invalid encrypted password.')
+        self.assertEqual(
+            res.data['encrypted_password'][0], 'Invalid encrypted password.'
+        )
 
 
 class PrivateUserApiTests(TestCase):

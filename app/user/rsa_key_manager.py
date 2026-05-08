@@ -42,7 +42,8 @@ def ensure_keys_exist(
         private_key_path: Path to the private key PEM file.
         public_key_path: Path to the public key PEM file.
     """
-    if not os.path.exists(private_key_path) or not os.path.exists(public_key_path):
+    if not os.path.exists(private_key_path) or \
+       not os.path.exists(public_key_path):
         generate_rsa_key_pair(private_key_path, public_key_path)
 
 

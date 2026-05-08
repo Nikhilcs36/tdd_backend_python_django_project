@@ -54,7 +54,7 @@ class GenerateRSAKeysCommandTests(TestCase):
         self.assertIn('END PRIVATE KEY', private_content)
 
     def test_command_creates_directory_if_not_exists(self):
-        """Test that the command creates the key directory if it doesn't exist."""
+        """Test that the command creates the key directory."""
         nested_dir = os.path.join(self.temp_dir, 'nested', 'keys')
         private_path = os.path.join(nested_dir, 'private.pem')
         public_path = os.path.join(nested_dir, 'public.pem')
