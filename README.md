@@ -88,6 +88,7 @@ The TDD approach was particularly valuable for building the Login Tracking Dashb
 - **Email Verification**: Token-based email verification system for account activation (24-hour token expiration)
 - **Welcome Email**: Automated welcome email sent after successful email verification
 - **Password Reset**: Secure password reset functionality with token validation (1-hour token expiration)
+- **RSA Encrypted Login Credentials**: Login passwords are encrypted using RSA-OAEP with SHA-256 before being sent over the network. The public key is served at `GET /api/user/public-key/`, and the private key never leaves the server. RSA keys are auto-generated on server startup — no manual setup required.
 - **Login Activity Tracking**: Detailed tracking of all login attempts via `LoginTrackingMiddleware`, including success/failed attempts, IP addresses, and user agents
 - **Login Activity Model**: Persistent storage of login attempts with timestamp, IP address, user agent, and success status
 - **Security Monitoring**: Monitor suspicious login activities, failed login attempts, and security patterns
@@ -232,7 +233,8 @@ python manage.py runserver
 ## API Endpoints
 
 ### Authentication Endpoints
-- `POST /api/user/token/` - Obtain JWT token (accepts `email` and `password`)
+- `GET /api/user/public-key/` - Get RSA public key for login credential encryption
+- `POST /api/user/token/` - Obtain JWT token (accepts `email` and `password`; also supports `encrypted_password`)
 - `POST /api/user/token/refresh/` - Refresh JWT token
 - `POST /api/user/create/` - User registration
 - `POST /api/user/logout/` - User logout (blacklists refresh token)
