@@ -22,6 +22,7 @@ app_name = 'user'
 urlpatterns = [
     path('create/', views.CreateUserView.as_view(), name='create'),
     path('token/', CustomTokenObtainPairView.as_view(), name='token'),
+    path('public-key/', views.PublicKeyView.as_view(), name='public-key'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('me/', views.ManageUserView.as_view(), name='me'),
     path('users/', views.UserListView.as_view(), name='users'),

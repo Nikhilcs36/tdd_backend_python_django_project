@@ -11,6 +11,8 @@ from .validators import (
     validate_email_for_signup,
     validate_password
 )
+from .rsa_key_manager import load_private_key, get_private_key_path, decrypt_data
+import binascii
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -178,18 +180,42 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         self.fields['password'] = serializers.CharField(
             style={'input_type': 'password'},
             trim_whitespace=False,
+            required=False,  # Not required if encrypted_password is provided
             error_messages={
                 'blank': 'password_required',
             }
+        )
+        self.fields['encrypted_password'] = serializers.CharField(
+            write_only=True,
+            required=False,  # Not required if plain password is provided
         )
         del self.fields['username']
 
     def validate(self, attrs):
         """
         Validate the user's credentials and return a token pair.
+        Supports both plaintext password and encrypted_password.
         """
         email = attrs.get('email')
-        password = attrs.get('password')
+
+        # Decrypt encrypted_password if provided
+        encrypted_password = attrs.get('encrypted_password')
+        if encrypted_password:
+            try:
+                private_key_path = get_private_key_path()
+                private_key = load_private_key(private_key_path)
+                encrypted_bytes = binascii.unhexlify(encrypted_password)
+                password = decrypt_data(private_key, encrypted_bytes)
+            except (FileNotFoundError, ValueError, binascii.Error, Exception):
+                raise serializers.ValidationError(
+                    {'encrypted_password': 'Invalid encrypted password.'}
+                )
+        else:
+            password = attrs.get('password')
+            if not password:
+                raise serializers.ValidationError(
+                    {'password': 'password_required'}
+                )
 
         # First check if user exists
         try:

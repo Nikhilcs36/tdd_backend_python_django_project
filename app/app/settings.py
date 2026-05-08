@@ -195,3 +195,13 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
 
 # Frontend URLs for email templates
 FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost:5173')
+
+# RSA Key paths for login credential encryption
+RSA_PRIVATE_KEY_PATH = os.environ.get(
+    'RSA_PRIVATE_KEY_PATH',
+    os.path.join(BASE_DIR, 'keys', 'private.pem')
+)
+RSA_PUBLIC_KEY_PATH = os.environ.get(
+    'RSA_PUBLIC_KEY_PATH',
+    os.path.join(BASE_DIR, 'keys', 'public.pem')
+)
