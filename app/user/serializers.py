@@ -11,7 +11,11 @@ from .validators import (
     validate_email_for_signup,
     validate_password
 )
-from .rsa_key_manager import load_private_key, get_private_key_path, decrypt_data
+from .rsa_key_manager import (
+    load_private_key,
+    get_private_key_path,
+    decrypt_data,
+)
 import binascii
 
 

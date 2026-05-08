@@ -1,8 +1,6 @@
 """Tests for the user app configuration (auto-generation of RSA keys)."""
 from django.test import TestCase
 from django.apps import apps
-import os
-import tempfile
 
 
 class UserAppConfigTests(TestCase):

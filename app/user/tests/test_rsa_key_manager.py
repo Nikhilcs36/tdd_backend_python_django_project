@@ -55,7 +55,7 @@ class RSAKeyManagerTests(TestCase):
         self.assertTrue(hasattr(public_key, 'encrypt'))
 
     def test_encrypt_decrypt_roundtrip(self):
-        """Test that data encrypted with public key can be decrypted with private key."""
+        """Test that data encrypted with public key can be decrypted."""
         generate_rsa_key_pair(self.private_key_path, self.public_key_path)
         private_key = load_private_key(self.private_key_path)
         public_key = load_public_key(self.public_key_path)

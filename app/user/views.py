@@ -3,7 +3,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from django.db.models import Q
-from django.conf import settings
 from drf_spectacular.utils import extend_schema, OpenApiParameter, \
     OpenApiExample
 from drf_spectacular.types import OpenApiTypes
@@ -610,6 +609,34 @@ class PublicKeyView(APIView):
 
     permission_classes = []  # Public endpoint - no authentication required
 
+    @extend_schema(
+        operation_id="get_public_key",
+        summary="Get RSA Public Key",
+        description=(
+            "Return the RSA public key in PEM format for encrypting "
+            "login credentials before sending them to the server."
+        ),
+        responses={
+            200: OpenApiTypes.OBJECT,
+            503: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Response",
+                value={
+                    "public_key": "-----BEGIN PUBLIC KEY-----\n..."
+                },
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Key Not Available",
+                value={"error": "Public key not available."},
+                response_only=True,
+                status_codes=["503"]
+            ),
+        ]
+    )
     def get(self, request):
         """Return the RSA public key in PEM format."""
         try:
