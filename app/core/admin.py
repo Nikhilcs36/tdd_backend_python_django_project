@@ -7,10 +7,12 @@ from .models import User
 class UserAdmin(BaseUserAdmin):
     """Define the admin pages for users."""
     ordering = ['id']
-    list_display = ['email', 'name', 'email_verified_status']
+    list_display = ['username', 'email', 'name', 'email_verified_status']
+    search_fields = ['username', 'email', 'name']
     list_filter = ['email_verified', 'is_staff', 'is_superuser', 'is_active']
     fieldsets = (
-        (None, {'fields': ('email', 'name', 'password', 'image',)}),
+        (None, {'fields': ('username', 'email', 'name',
+                           'password', 'image',)}),
         (
             'Email Verification',
             {
@@ -35,6 +37,7 @@ class UserAdmin(BaseUserAdmin):
         (None, {
             'classes': ('wide',),
             'fields': (
+                'username',
                 'email',
                 'password',
                 'password2'

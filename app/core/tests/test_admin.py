@@ -51,12 +51,14 @@ class AdminSiteTests(TestCase):
         self.assertContains(res, 'name')
         self.assertContains(res, 'password')
         self.assertContains(res, 'image')
+        self.assertContains(res, 'username')
 
         # Also check for proper field labels (capitalized)
         self.assertContains(res, 'Email')
         self.assertContains(res, 'Name')
         self.assertContains(res, 'Password')
         self.assertContains(res, 'Image')
+        self.assertContains(res, 'Username')
 
     def test_create_user_page(self):
         """Test that the create user page works"""
@@ -64,6 +66,14 @@ class AdminSiteTests(TestCase):
         res = self.client.get(url)
 
         self.assertEqual(res.status_code, 200)
+
+    def test_create_user_page_contains_username(self):
+        """Test that the create user page contains username field"""
+        url = reverse('admin:core_user_add')
+        res = self.client.get(url)
+
+        self.assertContains(res, 'username')
+        self.assertContains(res, 'Username')
 
     def test_admin_fieldsets_contain_name_and_image(self):
         """Test that admin fieldsets configuration includes name and image"""
@@ -76,9 +86,23 @@ class AdminSiteTests(TestCase):
         first_fieldset_fields = user_admin.fieldsets[0][1]['fields']
         self.assertIn('name', first_fieldset_fields)
         self.assertIn('image', first_fieldset_fields)
+        self.assertIn('username', first_fieldset_fields)
 
         # Check that name is in list_display
         self.assertIn('name', user_admin.list_display)
+
+    def test_username_in_list_display(self):
+        """Test that username is in list_display"""
+        self.assertIn('username', self.user_admin.list_display)
+
+    def test_username_in_search_fields(self):
+        """Test that username is in search_fields"""
+        self.assertIn('username', self.user_admin.search_fields)
+
+    def test_username_in_add_fieldsets(self):
+        """Test that username is in add_fieldsets"""
+        add_fields = self.user_admin.add_fieldsets[0][1]['fields']
+        self.assertIn('username', add_fields)
 
     # Email Verification Admin Tests
     def test_email_verified_status_in_list_display(self):
