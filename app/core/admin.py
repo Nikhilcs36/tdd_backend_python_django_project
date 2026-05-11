@@ -39,7 +39,7 @@ class UserAdmin(BaseUserAdmin):
             'fields': (
                 'username',
                 'email',
-                'password',
+                'password1',
                 'password2'
             ),
         }),
