@@ -104,6 +104,30 @@ class AdminSiteTests(TestCase):
         add_fields = self.user_admin.add_fieldsets[0][1]['fields']
         self.assertIn('username', add_fields)
 
+    def test_add_fieldsets_uses_correct_password_field_name(self):
+        """Test that add_fieldsets uses 'password1' not 'password'"""
+        add_fields = self.user_admin.add_fieldsets[0][1]['fields']
+        self.assertIn('password1', add_fields)
+        self.assertNotIn('password', add_fields)
+
+    def test_create_user_via_admin_form(self):
+        """Test that a user can be created successfully via the admin form"""
+        url = reverse('admin:core_user_add')
+        data = {
+            'username': 'newadminuser',
+            'email': 'newadmin@example.com',
+            'password1': 'testpass123',
+            'password2': 'testpass123',
+        }
+        res = self.client.post(url, data, follow=True)
+        self.assertEqual(res.status_code, 200)
+
+        # Verify the user was actually created
+        user_exists = get_user_model().objects.filter(
+            username='newadminuser'
+        ).exists()
+        self.assertTrue(user_exists)
+
     # Email Verification Admin Tests
     def test_email_verified_status_in_list_display(self):
         """Test that email_verified_status is in list_display"""
