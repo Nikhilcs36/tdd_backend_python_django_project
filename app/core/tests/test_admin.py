@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -110,7 +111,8 @@ class AdminSiteTests(TestCase):
         self.assertIn('password1', add_fields)
         self.assertNotIn('password', add_fields)
 
-    def test_create_user_via_admin_form(self):
+    @patch('core.admin.send_verification_email')
+    def test_create_user_via_admin_form(self, mock_send_email):
         """Test that a user can be created successfully via the admin form"""
         url = reverse('admin:core_user_add')
         data = {
@@ -127,6 +129,35 @@ class AdminSiteTests(TestCase):
             username='newadminuser'
         ).exists()
         self.assertTrue(user_exists)
+
+    @patch('core.admin.send_verification_email')
+    def test_create_user_via_admin_form_sends_verification_email(
+        self, mock_send_email
+    ):
+        """Test that creating a user via admin sends verification email"""
+        url = reverse('admin:core_user_add')
+        data = {
+            'username': 'verifyemailuser',
+            'email': 'verifyemail@example.com',
+            'password1': 'testpass123',
+            'password2': 'testpass123',
+        }
+        res = self.client.post(url, data, follow=True)
+        self.assertEqual(res.status_code, 200)
+
+        # Verify the user was created
+        user = get_user_model().objects.get(
+            username='verifyemailuser'
+        )
+        self.assertEqual(user.email, 'verifyemail@example.com')
+        self.assertFalse(user.email_verified)
+
+        # Verify that send_verification_email was called exactly once
+        self.assertEqual(mock_send_email.call_count, 1)
+
+        # Verify that the user has a verification token
+        self.assertIsNotNone(user.verification_token)
+        self.assertIsNotNone(user.verification_token_created_at)
 
     # Email Verification Admin Tests
     def test_email_verified_status_in_list_display(self):

@@ -52,6 +52,16 @@ class ModelTests(TestCase):
         self.assertTrue(user.is_superuser)
         self.assertTrue(user.is_staff)
 
+    def test_create_superuser_email_verified(self):
+        """Test creating new superuser auto-verifies email"""
+        user = get_user_model().objects.create_superuser(
+            username='admin',
+            email='admin@example.com',
+            password='test123'
+        )
+
+        self.assertTrue(user.email_verified)
+
     def test_create_user_with_duplicate_username(self):
         """Test creating a user with a duplicate username raises an error"""
         get_user_model().objects.create_user(
