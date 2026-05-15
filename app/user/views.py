@@ -1,3 +1,4 @@
+import logging
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -19,6 +20,8 @@ from core.models import User
 from .permissions import IsSuperUser, IsStaffOrSuperUser
 from .pagination import UserPagination
 from .rsa_key_manager import load_public_key, get_public_key_path
+
+logger = logging.getLogger(__name__)
 
 from core.email_service import (
     send_verification_email,
@@ -50,10 +53,14 @@ class CreateUserView(generics.CreateAPIView):
         # Send verification email
         try:
             send_verification_email(user, verification_url)
-        except Exception:
-            # Log error but don't fail registration
-            # The email verification can be resent later
-            pass
+            logger.info('Verification email sent to %s', user.email)
+        except Exception as e:
+            logger.error(
+                'Failed to send verification email to %s: %s',
+                user.email, e,
+                exc_info=True
+            )
+            # Don't fail registration - email can be resent later
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
