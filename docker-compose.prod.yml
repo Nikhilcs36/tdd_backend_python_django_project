@@ -1,0 +1,61 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: backend-prod
+    command: >
+      sh -c "python manage.py wait_for_db &&
+             python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=tdd_backend_django_prod_db
+      - DB_USER=produser
+      - DB_PASS=secure_password
+    env_file:
+      - path: .env.production
+        required: true
+    depends_on:
+      - db
+    volumes:
+      - app-media:/app/media
+      - app-static:/app/static
+    networks:
+      - tdd-network
+
+  db:
+    image: mysql:8.0.43-debian
+    volumes:
+      - prod-db-data:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=tdd_backend_django_prod_db
+      - MYSQL_USER=produser
+      - MYSQL_PASSWORD=secure_password
+      - MYSQL_ROOT_PASSWORD=rootpass_prod
+    networks:
+      - tdd-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - app-media:/media
+      - app-static:/static
+    depends_on:
+      - app
+    networks:
+      - tdd-network
+
+volumes:
+  prod-db-data:
+  app-media:
+  app-static:
+
+networks:
+  tdd-network:
+    external: true
+    name: tdd-network
