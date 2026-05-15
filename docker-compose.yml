@@ -31,6 +31,7 @@ services:
   
   db:
     image: mysql:8.0.43-debian
+    container_name: backend-dev-db
     volumes:
       - dev-db-data:/var/lib/mysql
       - ./db/init:/docker-entrypoint-initdb.d

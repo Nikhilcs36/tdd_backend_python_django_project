@@ -27,6 +27,7 @@ services:
 
   db:
     image: mysql:8.0.43-debian
+    container_name: backend-prod-db
     volumes:
       - prod-db-data:/var/lib/mysql
     environment:
