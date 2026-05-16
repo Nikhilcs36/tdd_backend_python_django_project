@@ -21,8 +21,6 @@ from .permissions import IsSuperUser, IsStaffOrSuperUser
 from .pagination import UserPagination
 from .rsa_key_manager import load_public_key, get_public_key_path
 
-logger = logging.getLogger(__name__)
-
 from core.email_service import (
     send_verification_email,
     send_welcome_email,
@@ -30,6 +28,8 @@ from core.email_service import (
     build_password_reset_url,
     send_password_reset_email
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CreateUserView(generics.CreateAPIView):
