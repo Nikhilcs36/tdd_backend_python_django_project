@@ -58,5 +58,4 @@ volumes:
 
 networks:
   tdd-network:
-    external: true
     name: tdd-network
