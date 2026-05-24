@@ -38,6 +38,17 @@ services:
     networks:
       - tdd-network
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: frontend-prod
+    ports:
+      - "3000:80"
+    networks:
+      - tdd-network
+    restart: unless-stopped
+
   nginx:
     image: nginx:alpine
     ports:
@@ -48,6 +59,7 @@ services:
       - app-static:/static
     depends_on:
       - app
+      - frontend
     networks:
       - tdd-network
 
