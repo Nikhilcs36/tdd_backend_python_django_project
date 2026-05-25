@@ -8,7 +8,7 @@ services:
       sh -c "python manage.py wait_for_db &&
              python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-             gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+             gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 1"
     environment:
       - DB_HOST=db
       - DB_NAME=tdd_backend_django_prod_db
@@ -17,26 +17,28 @@ services:
     env_file:
       - path: .env.production
         required: true
-    depends_on:
-      - db
+    # depends_on:                 # Using RDS instead of Docker MySQL
+    #   - db
     volumes:
       - app-media:/app/media
       - app-static:/app/static
     networks:
       - tdd-network
 
-  db:
-    image: mysql:8.0.43-debian
-    container_name: backend-prod-db
-    volumes:
-      - prod-db-data:/var/lib/mysql
-    environment:
-      - MYSQL_DATABASE=tdd_backend_django_prod_db
-      - MYSQL_USER=produser
-      - MYSQL_PASSWORD=secure_password
-      - MYSQL_ROOT_PASSWORD=rootpass_prod
-    networks:
-      - tdd-network
+  # ===============================================================
+  # db:                            ← COMMENTED OUT: Using RDS instead
+  #   image: mysql:8.0.43-debian   ← Uncomment to use local Docker MySQL
+  #   container_name: backend-prod-db
+  #   volumes:
+  #     - prod-db-data:/var/lib/mysql
+  #   environment:
+  #     - MYSQL_DATABASE=tdd_backend_django_prod_db
+  #     - MYSQL_USER=produser
+  #     - MYSQL_PASSWORD=secure_password
+  #     - MYSQL_ROOT_PASSWORD=rootpass_prod
+  #   networks:
+  #     - tdd-network
+  # ===============================================================
 
   frontend:
     build:
@@ -64,7 +66,7 @@ services:
       - tdd-network
 
 volumes:
-  prod-db-data:
+  # prod-db-data:                # Commented out — not needed with RDS
   app-media:
   app-static:
 
