@@ -9,11 +9,13 @@ services:
              python manage.py migrate &&
              python manage.py collectstatic --noinput &&
              gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 1"
-    environment:
-      - DB_HOST=db
-      - DB_NAME=tdd_backend_django_prod_db
-      - DB_USER=produser
-      - DB_PASS=secure_password
+    # ---------------------------------------------------------------
+    # environment:                # Commented: .env.production handles DB config
+    #   - DB_HOST=db              # Uncomment these if NOT using RDS (Docker MySQL)
+    #   - DB_NAME=tdd_backend_django_prod_db
+    #   - DB_USER=produser
+    #   - DB_PASS=secure_password
+    # ---------------------------------------------------------------
     env_file:
       - path: .env.production
         required: true
