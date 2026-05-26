@@ -14,11 +14,17 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+# 1) Try project root (for local dev from project root)
+root_env = BASE_DIR.parent / '.env'
+if root_env.exists():
+    load_dotenv(root_env)
+# 2) Fallback: app directory (for Docker with mounted .env at /app/.env)
+else:
+    load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -51,6 +57,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',  # CORS support
+    'game',
 ]
 
 MIDDLEWARE = [
@@ -233,3 +240,11 @@ RSA_PUBLIC_KEY_PATH = os.environ.get(
     'RSA_PUBLIC_KEY_PATH',
     os.path.join(BASE_DIR, 'keys', 'public.pem')
 )
+
+# Feature Flags
+GAME_SECTION_ENABLED = os.environ.get(
+    'GAME_SECTION_ENABLED', 'True'
+).lower() == 'true'
+GAME_LEADERBOARD_ENABLED = os.environ.get(
+    'GAME_LEADERBOARD_ENABLED', 'True'
+).lower() == 'true'
