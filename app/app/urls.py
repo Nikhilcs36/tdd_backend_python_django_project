@@ -37,6 +37,7 @@ urlpatterns = [
         name='api-redoc',
     ),
     path('api/user/', include('user.urls')),
+    path('api/game/', include('game.urls')),
 ]
 
 # Serve media files during development only
