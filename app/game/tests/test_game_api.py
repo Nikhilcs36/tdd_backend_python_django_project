@@ -80,14 +80,6 @@ class GameScoreModelTests(TestCase):
         )
         self.assertEqual(score.score, 100.0)
 
-    def test_game_score_default_attempts(self):
-        """Test the default attempts value."""
-        score = GameScore.objects.create(
-            user=self.user,
-            score=75.0
-        )
-        self.assertEqual(score.attempts, 1)
-
 
 class GameScoreAPITests(TestCase):
     """Test the game score API endpoints."""

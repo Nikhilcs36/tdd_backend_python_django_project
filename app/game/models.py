@@ -16,7 +16,6 @@ class GameScore(models.Model):
     score = models.FloatField(
         help_text="Accuracy percentage (0.0 - 100.0)"
     )
-    attempts = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
