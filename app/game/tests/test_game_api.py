@@ -300,6 +300,97 @@ class GameLeaderboardAPITests(TestCase):
         self.assertEqual(len(res.data['results']), 0)
         self.assertIn('results', res.data)
 
+    def test_leaderboard_response_includes_pagination_fields(self):
+        """Test leaderboard response includes pagination metadata."""
+        self.authenticate_as_admin()
+        GameScore.objects.create(user=self.user, score=80.0)
+        GameScore.objects.create(user=self.admin_user, score=95.0)
+
+        res = self.client.get(LEADERBOARD_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn('count', res.data)
+        self.assertIn('next', res.data)
+        self.assertIn('previous', res.data)
+        self.assertIn('results', res.data)
+
+    def test_leaderboard_pagination_respects_size_param(self):
+        """Test leaderboard pagination respects the 'size' query param."""
+        self.authenticate_as_admin()
+        # Create scores for 5 different users
+        for i in range(5):
+            user = create_user(
+                username=f'pagi_user_{i}',
+                email=f'pagi{i}@example.com',
+                is_staff=False
+            )
+            GameScore.objects.create(user=user, score=float(90 - i * 5))
+
+        # Request page_size=2
+        res = self.client.get(LEADERBOARD_URL, {'size': 2})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data['results']), 2)
+        self.assertEqual(res.data['count'], 5)
+        self.assertIsNotNone(res.data['next'])
+
+    def test_leaderboard_pagination_second_page(self):
+        """Test leaderboard pagination returns correct second page."""
+        self.authenticate_as_admin()
+        # Create scores for 5 users
+        for i in range(5):
+            user = create_user(
+                username=f'page2_user_{i}',
+                email=f'page2{i}@example.com',
+                is_staff=False
+            )
+            GameScore.objects.create(user=user, score=float(90 - i * 5))
+
+        # Request page 2 with page_size=2
+        res = self.client.get(LEADERBOARD_URL, {'size': 2, 'page': 2})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data['results']), 2)
+        self.assertEqual(res.data['count'], 5)
+        self.assertIsNotNone(res.data['previous'])
+        # page 2: indices 2,3 (0-based)
+        self.assertEqual(res.data['results'][0]['score'], 80.0)
+        self.assertEqual(res.data['results'][1]['score'], 75.0)
+
+    def test_leaderboard_pagination_last_page(self):
+        """Test leaderboard returns correct number on the last page."""
+        self.authenticate_as_admin()
+        for i in range(5):
+            user = create_user(
+                username=f'last_user_{i}',
+                email=f'last{i}@example.com',
+                is_staff=False
+            )
+            GameScore.objects.create(user=user, score=float(90 - i * 5))
+
+        # Request page 3 with page_size=2 (only 1 item on page 3)
+        res = self.client.get(LEADERBOARD_URL, {'size': 2, 'page': 3})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['count'], 5)
+        self.assertIsNone(res.data['next'])
+
+    def test_leaderboard_pagination_out_of_range_graceful(self):
+        """Test out-of-range page returns empty gracefully (no 404)."""
+        self.authenticate_as_admin()
+        user2 = create_user(username='user2', email='user2@example.com')
+        GameScore.objects.create(user=self.user, score=80.0)
+        GameScore.objects.create(user=user2, score=95.0)
+
+        # Request page 999 — should not 404
+        res = self.client.get(LEADERBOARD_URL, {'size': 2, 'page': 999})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        # SafePageNumberPagination returns last page when page is too high
+        self.assertEqual(len(res.data['results']), 2)
+        self.assertEqual(res.data['count'], 2)
+
     def test_leaderboard_tiebreaker_earliest_score_first(self):
         """
         Test that when 3 of 5 users have the same top score,

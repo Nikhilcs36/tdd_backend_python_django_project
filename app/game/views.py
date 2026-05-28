@@ -102,6 +102,11 @@ class MyGameScoresView(GameSectionCheckMixin, generics.ListAPIView):
         ]))
 
 
+class LeaderboardPagination(SafePageNumberPagination):
+    """Pagination for the leaderboard with a default page size."""
+    page_size = 10
+
+
 class GameLeaderboardView(
     GameSectionCheckMixin,
     LeaderboardCheckMixin,
@@ -111,9 +116,11 @@ class GameLeaderboardView(
     Admin-only leaderboard showing the best score per user.
     Ordered by score descending.
     Uses manual deduplication to ensure only one score per user.
+    Supports pagination via LeaderboardPagination.
     """
     serializer_class = LeaderboardSerializer
     permission_classes = [permissions.IsAuthenticated, IsStaffOrSuperUser]
+    pagination_class = LeaderboardPagination
 
     def get_queryset(self):
         """
@@ -123,7 +130,10 @@ class GameLeaderboardView(
         return GameScore.objects.all().order_by('-score', 'created_at')
 
     def list(self, request, *args, **kwargs):
-        """Return leaderboard with one entry per user (their best score)."""
+        """
+        Return leaderboard with one entry per user (their best score).
+        Paginates the deduplicated results.
+        """
         queryset = self.get_queryset()
         seen_users = set()
         unique_scores = []
@@ -132,6 +142,11 @@ class GameLeaderboardView(
             if score.user_id not in seen_users:
                 seen_users.add(score.user_id)
                 unique_scores.append(score)
+
+        page = self.paginate_queryset(unique_scores)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(unique_scores, many=True)
         return Response({
