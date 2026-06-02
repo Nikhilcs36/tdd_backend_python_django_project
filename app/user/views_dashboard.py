@@ -1,12 +1,15 @@
 """Views for dashboard API endpoints."""
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from datetime import datetime, timedelta
-from django.utils import timezone
 from drf_spectacular.utils import (
     extend_schema, OpenApiParameter, OpenApiExample
 )
 from drf_spectacular.types import OpenApiTypes
+from .mixins import (
+    DateFilterMixin,
+    filter_users_by_role,
+    parse_and_validate_user_ids,
+)
 from .permissions import IsStaffOrSuperUser
 from .pagination import LoginActivityPagination
 from .serializers_dashboard import (
@@ -33,39 +36,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 User = get_user_model()
 
 
-class DateFilteredAPIView(generics.GenericAPIView):
-    """Base class providing date filtering functionality for API views."""
-
-    def get_date_filters(self, request):
-        """Extract and validate date filters from request.
-
-        Returns:
-            tuple: (start_date, end_date) - both can be None if not provided
-        """
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-
-        if start_date or end_date:
-            try:
-                if start_date:
-                    start_date = timezone.make_aware(
-                        datetime.strptime(start_date, '%Y-%m-%d'),
-                        timezone=timezone.utc)
-                if end_date:
-                    end_date = timezone.make_aware(
-                        datetime.strptime(end_date, '%Y-%m-%d'),
-                        timezone=timezone.utc)
-                    # Make end_date inclusive of the full day
-                    end_date = end_date + timedelta(days=1)
-            except ValueError:
-                raise ValidationError(
-                    {'error': 'Invalid date format. Use YYYY-MM-DD format.'}
-                )
-
-        return start_date, end_date
-
-
-class UserStatsView(DateFilteredAPIView, generics.GenericAPIView):
+class UserStatsView(DateFilterMixin, generics.GenericAPIView):
     """API endpoint to get user statistics."""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserStatsSerializer
@@ -143,7 +114,7 @@ class UserStatsView(DateFilteredAPIView, generics.GenericAPIView):
         return Response(serializer.data)
 
 
-class LoginActivityView(DateFilteredAPIView, generics.ListAPIView):
+class LoginActivityView(DateFilterMixin, generics.ListAPIView):
     """API endpoint to get user login activity."""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = LoginActivitySerializer
@@ -247,7 +218,7 @@ class LoginActivityView(DateFilteredAPIView, generics.ListAPIView):
         return queryset
 
 
-class AdminDashboardView(DateFilteredAPIView, generics.GenericAPIView):
+class AdminDashboardView(DateFilterMixin, generics.GenericAPIView):
     """API endpoint to get admin dashboard data."""
     permission_classes = [IsStaffOrSuperUser]
     serializer_class = AdminDashboardSerializer
@@ -462,7 +433,7 @@ class AdminDashboardView(DateFilteredAPIView, generics.GenericAPIView):
 
 
 # Chart Data API Views
-class LoginTrendsView(DateFilteredAPIView, generics.GenericAPIView):
+class LoginTrendsView(DateFilterMixin, generics.GenericAPIView):
     """API endpoint to get login trends data for line charts."""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ChartDataSerializer
@@ -620,14 +591,7 @@ class LoginTrendsView(DateFilteredAPIView, generics.GenericAPIView):
                 )
 
             # Get users by role
-            if role == 'admin':
-                users = User.objects.filter(
-                    Q(is_staff=True) | Q(is_superuser=True)
-                )
-            else:  # role == 'regular'
-                users = User.objects.filter(
-                    is_staff=False, is_superuser=False
-                )
+            users = filter_users_by_role(role)
 
             # Get combined data for users with specified role
             trends_data = get_combined_login_trends_data(
@@ -635,30 +599,11 @@ class LoginTrendsView(DateFilteredAPIView, generics.GenericAPIView):
 
         # Check if user_ids parameter is provided
         elif user_ids:
-            # Validate admin permissions
-            if not (request.user.is_staff or request.user.is_superuser):
-                return Response(
-                    {'error': 'Admin permissions required to filter by '
-                              'user IDs.'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
-            # Validate user_ids format
-            try:
-                user_ids = [int(uid) for uid in user_ids]
-            except ValueError:
-                return Response(
-                    {'error': 'Invalid user_ids format. Must be integers.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Get users and check access permissions
-            users = User.objects.filter(id__in=user_ids)
-            if len(users) != len(user_ids):
-                return Response(
-                    {'error': 'One or more user IDs not found.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            users, error_response = parse_and_validate_user_ids(
+                user_ids, request=request
+            )
+            if error_response:
+                return error_response
 
             # Get combined data for specified users
             trends_data = get_combined_login_trends_data(
@@ -673,7 +618,7 @@ class LoginTrendsView(DateFilteredAPIView, generics.GenericAPIView):
         })
 
 
-class LoginComparisonView(DateFilteredAPIView, generics.GenericAPIView):
+class LoginComparisonView(DateFilterMixin, generics.GenericAPIView):
     """API endpoint to get login comparison data for bar charts."""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ChartDataSerializer
@@ -812,14 +757,7 @@ class LoginComparisonView(DateFilteredAPIView, generics.GenericAPIView):
                 )
 
             # Get users by role
-            if role == 'admin':
-                users = User.objects.filter(
-                    Q(is_staff=True) | Q(is_superuser=True)
-                )
-            else:  # role == 'regular'
-                users = User.objects.filter(
-                    is_staff=False, is_superuser=False
-                )
+            users = filter_users_by_role(role)
 
             # Get combined data for users with specified role
             comparison_data = get_combined_login_comparison_data(
@@ -827,30 +765,11 @@ class LoginComparisonView(DateFilteredAPIView, generics.GenericAPIView):
 
         # Check if user_ids parameter is provided
         elif user_ids:
-            # Validate admin permissions
-            if not (request.user.is_staff or request.user.is_superuser):
-                return Response(
-                    {'error': 'Admin permissions required to filter by '
-                              'user IDs.'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
-            # Validate user_ids format
-            try:
-                user_ids = [int(uid) for uid in user_ids]
-            except ValueError:
-                return Response(
-                    {'error': 'Invalid user_ids format. Must be integers.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Get users and check access permissions
-            users = User.objects.filter(id__in=user_ids)
-            if len(users) != len(user_ids):
-                return Response(
-                    {'error': 'One or more user IDs not found.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            users, error_response = parse_and_validate_user_ids(
+                user_ids, request=request
+            )
+            if error_response:
+                return error_response
 
             # Get combined data for specified users
             comparison_data = get_combined_login_comparison_data(
@@ -865,7 +784,7 @@ class LoginComparisonView(DateFilteredAPIView, generics.GenericAPIView):
         })
 
 
-class LoginDistributionView(DateFilteredAPIView, generics.GenericAPIView):
+class LoginDistributionView(DateFilterMixin, generics.GenericAPIView):
     """API endpoint to get login distribution data for pie charts."""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ChartDataSerializer
@@ -1027,14 +946,7 @@ class LoginDistributionView(DateFilteredAPIView, generics.GenericAPIView):
                 )
 
             # Get users by role
-            if role == 'admin':
-                users = User.objects.filter(
-                    Q(is_staff=True) | Q(is_superuser=True)
-                )
-            else:  # role == 'regular'
-                users = User.objects.filter(
-                    is_staff=False, is_superuser=False
-                )
+            users = filter_users_by_role(role)
 
             # Get combined data for users with specified role
             distribution_data = get_combined_login_distribution_data(
@@ -1042,30 +954,11 @@ class LoginDistributionView(DateFilteredAPIView, generics.GenericAPIView):
 
         # Check if user_ids parameter is provided
         elif user_ids:
-            # Validate admin permissions
-            if not (request.user.is_staff or request.user.is_superuser):
-                return Response(
-                    {'error': 'Admin permissions required to filter by '
-                              'user IDs.'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
-            # Validate user_ids format
-            try:
-                user_ids = [int(uid) for uid in user_ids]
-            except ValueError:
-                return Response(
-                    {'error': 'Invalid user_ids format. Must be integers.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Get users and check access permissions
-            users = User.objects.filter(id__in=user_ids)
-            if len(users) != len(user_ids):
-                return Response(
-                    {'error': 'One or more user IDs not found.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            users, error_response = parse_and_validate_user_ids(
+                user_ids, request=request
+            )
+            if error_response:
+                return error_response
 
             # Get combined data for specified users
             distribution_data = get_combined_login_distribution_data(
@@ -1080,7 +973,7 @@ class LoginDistributionView(DateFilteredAPIView, generics.GenericAPIView):
         })
 
 
-class AdminChartsView(DateFilteredAPIView, generics.GenericAPIView):
+class AdminChartsView(DateFilterMixin, generics.GenericAPIView):
     """API endpoint to get admin-level chart data."""
     permission_classes = [IsStaffOrSuperUser]
     serializer_class = ChartDataSerializer
@@ -1194,7 +1087,7 @@ def check_user_access(request, target_user_id):
     return False  # Unauthorized access
 
 
-class UserSpecificStatsView(DateFilteredAPIView, generics.GenericAPIView):
+class UserSpecificStatsView(DateFilterMixin, generics.GenericAPIView):
     """
     API endpoint to get user login activity with role-based access control.
     Provides paginated login activity history for a specific user.
@@ -1309,7 +1202,7 @@ class UserSpecificStatsView(DateFilteredAPIView, generics.GenericAPIView):
         return Response(serializer.data)
 
 
-class UserSpecificLoginActivityView(DateFilteredAPIView, generics.ListAPIView):
+class UserSpecificLoginActivityView(DateFilterMixin, generics.ListAPIView):
     """
     API endpoint to get user login activity with role-based access control.
     Provides paginated login activity history for a specific user.
