@@ -248,3 +248,8 @@ GAME_SECTION_ENABLED = os.environ.get(
 GAME_LEADERBOARD_ENABLED = os.environ.get(
     'GAME_LEADERBOARD_ENABLED', 'True'
 ).lower() == 'true'
+
+# Report Download Feature Flag
+ENABLE_REPORT_DOWNLOAD = os.environ.get(
+    'ENABLE_REPORT_DOWNLOAD', 'True'
+).lower() == 'true'

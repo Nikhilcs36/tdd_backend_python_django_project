@@ -12,6 +12,7 @@ from user.views_dashboard import (
     UserSpecificLoginActivityView,
     AdminUsersStatsView
 )
+from user.views_report import ReportDownloadView
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
@@ -71,6 +72,12 @@ urlpatterns = [
         'admin/dashboard/users/stats/',
         AdminUsersStatsView.as_view(),
         name='admin-users-stats'
+    ),
+    # Report download endpoint
+    path(
+        'dashboard/report/download/',
+        ReportDownloadView.as_view(),
+        name='report-download'
     ),
     # Email verification endpoints
     path('verify-email/',
