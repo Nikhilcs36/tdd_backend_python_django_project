@@ -130,6 +130,94 @@ class AdminSiteTests(TestCase):
         ).exists()
         self.assertTrue(user_exists)
 
+    def test_staff_can_view_user_change_page(self):
+        """Test that staff can view the user change page (read-only)."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser',
+            email='staff@example.com',
+            password='password123',
+            is_staff=True
+        )
+        self.client.force_login(staff_user)
+        url = reverse('admin:core_user_change', args=[self.user.id])
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        # Staff should see the form but fields should be readonly
+        self.assertContains(res, 'email')
+
+    def test_staff_can_view_user_list(self):
+        """Test that staff can view the user list in admin."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser2',
+            email='staff2@example.com',
+            password='password123',
+            is_staff=True
+        )
+        self.client.force_login(staff_user)
+        url = reverse('admin:core_user_changelist')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, self.user.username)
+
+    def test_staff_cannot_add_user_via_admin(self):
+        """Test that staff cannot access the add user page."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser3',
+            email='staff3@example.com',
+            password='password123',
+            is_staff=True
+        )
+        self.client.force_login(staff_user)
+        url = reverse('admin:core_user_add')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 403)
+
+    def test_staff_cannot_delete_user_via_admin(self):
+        """Test that staff cannot access the delete user page."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser4',
+            email='staff4@example.com',
+            password='password123',
+            is_staff=True
+        )
+        self.client.force_login(staff_user)
+        url = reverse('admin:core_user_delete', args=[self.user.id])
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 403)
+
+    def test_staff_cannot_change_user_via_admin_post(self):
+        """Test that staff cannot submit changes to a user via admin."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser5',
+            email='staff5@example.com',
+            password='password123',
+            is_staff=True
+        )
+        self.client.force_login(staff_user)
+        url = reverse('admin:core_user_change', args=[self.user.id])
+        data = {
+            'username': 'hacked_username',
+            'email': self.user.email,
+        }
+        res = self.client.post(url, data, follow=True)
+        # Should be forbidden
+        self.assertEqual(res.status_code, 403)
+        # Verify the username was NOT changed
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'testuser')
+
+    def test_superuser_can_add_user_via_admin(self):
+        """Test that superuser can access the add user page."""
+        url = reverse('admin:core_user_add')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+
+    def test_superuser_can_delete_user_via_admin(self):
+        """Test that superuser can access the delete user page."""
+        url = reverse('admin:core_user_delete', args=[self.user.id])
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+
     @patch('core.admin.send_verification_email')
     def test_create_user_via_admin_form_sends_verification_email(
         self, mock_send_email

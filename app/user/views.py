@@ -17,7 +17,7 @@ from .serializers import (
 )
 from rest_framework_simplejwt.views import TokenObtainPairView
 from core.models import User
-from .permissions import IsSuperUser, IsStaffOrSuperUser
+from .permissions import IsStaffOrSuperUser, UserDetailPermission
 from .pagination import UserPagination
 from .rsa_key_manager import load_public_key, get_public_key_path
 
@@ -207,7 +207,7 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update or delete a user's details."""
     serializer_class = UserSerializer
     queryset = User.objects.all()
-    permission_classes = [IsSuperUser]
+    permission_classes = [UserDetailPermission]
 
     def get_serializer(self, *args, **kwargs):
         """
