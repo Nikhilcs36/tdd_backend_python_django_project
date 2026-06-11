@@ -8,11 +8,11 @@ from .email_service import send_verification_email, build_verification_url
 class UserAdmin(BaseUserAdmin):
     """Define the admin pages for users."""
     ordering = ['id']
-    list_display = ['username', 'email', 'name', 'email_verified_status']
-    search_fields = ['username', 'email', 'name']
+    list_display = ['username', 'email', 'email_verified_status']
+    search_fields = ['username', 'email']
     list_filter = ['email_verified', 'is_staff', 'is_superuser', 'is_active']
     fieldsets = (
-        (None, {'fields': ('username', 'email', 'name',
+        (None, {'fields': ('username', 'email',
                            'password', 'image',)}),
         (
             'Email Verification',
