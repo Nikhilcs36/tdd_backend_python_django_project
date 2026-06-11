@@ -945,8 +945,16 @@ class PrivateUserApiTests(TestCase):
         res = self.client.get(USERS_URL)
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_retrieve_specific_user_detail_for_non_admin_fail(self):
-        """Test retrieving a specific user's details for non-admin fails."""
+    def test_retrieve_own_detail_for_regular_user_success(self):
+        """Test that a regular user can retrieve their own details."""
+        url = reverse('user:user-detail', args=[self.user.id])
+        res = self.client.get(url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['username'], self.user.username)
+
+    def test_retrieve_other_user_detail_for_regular_user_fail(self):
+        """Test retrieving another user's details for regular user fails."""
         user = User.objects.create_user(
             email='test2@example.com',
             password='Password123',
@@ -957,8 +965,18 @@ class PrivateUserApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_update_user_for_non_admin_fail(self):
-        """Test updating a user for non-admin fails."""
+    def test_update_own_detail_for_regular_user_success(self):
+        """Test that a regular user can update their own details."""
+        url = reverse('user:user-detail', args=[self.user.id])
+        payload = {'username': 'newname'}
+        res = self.client.patch(url, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'newname')
+
+    def test_update_other_user_for_regular_user_fail(self):
+        """Test updating another user for regular user fails."""
         user = User.objects.create_user(
             email='test2@example.com',
             password='Password123',
@@ -1516,8 +1534,16 @@ class StaffUserApiTests(TestCase):
         res = self.client.get(USERS_URL)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
-    def test_retrieve_specific_user_detail_for_staff_fail(self):
-        """Test retrieving a specific user's details for staff fails."""
+    def test_retrieve_own_detail_for_staff_success(self):
+        """Test that staff can retrieve their own details."""
+        url = reverse('user:user-detail', args=[self.user.id])
+        res = self.client.get(url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['username'], self.user.username)
+
+    def test_retrieve_other_user_detail_for_staff_success(self):
+        """Test that staff can view other user's details (read-only)."""
         user = User.objects.create_user(
             email='test2@example.com',
             password='Password123',
@@ -1526,10 +1552,11 @@ class StaffUserApiTests(TestCase):
         url = reverse('user:user-detail', args=[user.id])
         res = self.client.get(url)
 
-        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['username'], user.username)
 
-    def test_delete_user_for_staff_fail(self):
-        """Test deleting a user for staff fails."""
+    def test_delete_other_user_for_staff_fail(self):
+        """Test that staff cannot delete other users."""
         user = User.objects.create_user(
             email='test2@example.com',
             password='Password123',
@@ -1540,8 +1567,25 @@ class StaffUserApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_update_user_for_staff_fail(self):
-        """Test updating a user for staff fails."""
+    def test_delete_own_user_for_staff_fail(self):
+        """Test that staff cannot delete their own account."""
+        url = reverse('user:user-detail', args=[self.user.id])
+        res = self.client.delete(url)
+
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_update_own_profile_for_staff_success(self):
+        """Test that staff can update their own profile."""
+        url = reverse('user:user-detail', args=[self.user.id])
+        payload = {'username': 'updatedstaff'}
+        res = self.client.patch(url, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'updatedstaff')
+
+    def test_update_other_user_for_staff_fail(self):
+        """Test that staff cannot update other users."""
         user = User.objects.create_user(
             email='test2@example.com',
             password='Password123',

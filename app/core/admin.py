@@ -74,3 +74,27 @@ class UserAdmin(BaseUserAdmin):
     def verify_emails(self, request, queryset):
         """Bulk action to mark selected users as email verified."""
         queryset.update(email_verified=True)
+
+    def has_module_permission(self, request):
+        """Allow staff and superusers to see the admin module."""
+        return request.user.is_active and (
+            request.user.is_superuser or request.user.is_staff
+        )
+
+    def has_view_permission(self, request, obj=None):
+        """Allow staff and superusers to view records."""
+        return request.user.is_active and (
+            request.user.is_superuser or request.user.is_staff
+        )
+
+    def has_change_permission(self, request, obj=None):
+        """Only superusers can edit records."""
+        return request.user.is_active and request.user.is_superuser
+
+    def has_add_permission(self, request):
+        """Only superusers can add records."""
+        return request.user.is_active and request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        """Only superusers can delete records."""
+        return request.user.is_active and request.user.is_superuser
