@@ -25,6 +25,24 @@ class ModelTests(TestCase):
         self.assertTrue(user.is_active)
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
+        # Name should default to empty string when not provided
+        self.assertEqual(user.name, '')
+
+    def test_create_user_without_name_is_optional(self):
+        """Test creating a user without a name field succeeds
+        (name is optional)"""
+        username = 'nonameuser'
+        email = 'noname@example.com'
+        password = 'Testpass123'
+        user = get_user_model().objects.create_user(
+            username=username,
+            email=email,
+            password=password
+        )
+
+        self.assertEqual(user.username, username)
+        self.assertEqual(user.email, email)
+        self.assertEqual(user.name, '')
 
     def test_new_user_email_normalized(self):
         """Test email is normalized for new users"""

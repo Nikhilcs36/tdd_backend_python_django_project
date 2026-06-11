@@ -30,7 +30,6 @@ class AdminSiteTests(TestCase):
         url = reverse('admin:core_user_changelist')
         res = self.client.get(url)
 
-        self.assertContains(res, self.user.name)
         self.assertContains(res, self.user.email)
         self.assertContains(res, self.user.username)
 
@@ -49,17 +48,18 @@ class AdminSiteTests(TestCase):
         # Check that the response contains all expected fields
         # These should be present as field names in the form
         self.assertContains(res, 'email')
-        self.assertContains(res, 'name')
         self.assertContains(res, 'password')
         self.assertContains(res, 'image')
         self.assertContains(res, 'username')
 
         # Also check for proper field labels (capitalized)
         self.assertContains(res, 'Email')
-        self.assertContains(res, 'Name')
         self.assertContains(res, 'Password')
         self.assertContains(res, 'Image')
         self.assertContains(res, 'Username')
+
+        # Name field is intentionally removed from admin UI
+        self.assertNotContains(res, 'Name')
 
     def test_create_user_page(self):
         """Test that the create user page works"""
@@ -76,21 +76,22 @@ class AdminSiteTests(TestCase):
         self.assertContains(res, 'username')
         self.assertContains(res, 'Username')
 
-    def test_admin_fieldsets_contain_name_and_image(self):
-        """Test that admin fieldsets configuration includes name and image"""
+    def test_admin_fieldsets_contain_image_and_username(self):
+        """Test that admin fieldset includes image not name"""
         # This test verifies that the admin configuration has expected fields
 
         # Get the registered admin class
         user_admin = admin.site._registry[User]
 
-        # Check that name and image are in the first fieldset
+        # Check that image and username are in the first fieldset
         first_fieldset_fields = user_admin.fieldsets[0][1]['fields']
-        self.assertIn('name', first_fieldset_fields)
         self.assertIn('image', first_fieldset_fields)
         self.assertIn('username', first_fieldset_fields)
+        # Name field should NOT be in the fieldset anymore
+        self.assertNotIn('name', first_fieldset_fields)
 
-        # Check that name is in list_display
-        self.assertIn('name', user_admin.list_display)
+        # Check that name is NOT in list_display anymore
+        self.assertNotIn('name', user_admin.list_display)
 
     def test_username_in_list_display(self):
         """Test that username is in list_display"""
