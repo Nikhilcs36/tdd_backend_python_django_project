@@ -36,6 +36,46 @@ class CreateUserView(generics.CreateAPIView):
     """Create a new user in the system."""
     serializer_class = UserSerializer
 
+    @extend_schema(
+        operation_id="create_user",
+        summary="Register New User",
+        description=(
+            "Create a new user account. Accepts user details such as email, "
+            "username, and password. Automatically sends a verification email "
+            "to the provided email address. The user must verify their email "
+            "before they can log in."
+        ),
+        responses={
+            201: UserSerializer,
+            400: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Registration",
+                value={
+                    "id": 1,
+                    "username": "newuser",
+                    "email": "newuser@example.com",
+                    "image": None
+                },
+                response_only=True,
+                status_codes=["201"]
+            ),
+            OpenApiExample(
+                "Validation Error",
+                value={
+                    "email": ["user with this email already exists."],
+                    "username": ["A user with that username already exists."]
+                },
+                response_only=True,
+                status_codes=["400"]
+            )
+        ]
+    )
+    def post(self, request, *args, **kwargs):
+        """Handle POST request for user registration."""
+        return self.create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         """
         Create user, generate verification token, and send verification email.
@@ -67,11 +107,124 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom token obtain pair view."""
     serializer_class = CustomTokenObtainPairSerializer
 
+    @extend_schema(
+        operation_id="login_obtain_token",
+        summary="User Login / Obtain JWT Token",
+        description=(
+            "Authenticate a user with email and encrypted password. "
+            "Returns access and refresh JWT tokens. The password should be "
+            "encrypted using the RSA public key obtained from the "
+            "/public-key/ endpoint before sending. Returns user details "
+            "including username, email, privilege, and verification status."
+        ),
+        responses={
+            200: CustomTokenObtainPairSerializer,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Login",
+                value={
+                    "access": "eyJ0eXAiOiJKV1Qi...",
+                    "refresh": "eyJ0eXAiOiJKV1Qi...",
+                    "id": 1,
+                    "username": "testuser",
+                    "email": "testuser@example.com",
+                    "is_staff": False,
+                    "is_superuser": False,
+                    "email_verified": True
+                },
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Invalid Credentials",
+                value={
+                    "detail": "No active account found "
+                              "with the given credentials"
+                },
+                response_only=True,
+                status_codes=["401"]
+            )
+        ]
+    )
+    def post(self, request, *args, **kwargs):
+        """Handle POST request for user login."""
+        return super().post(request, *args, **kwargs)
+
 
 class ManageUserView(generics.RetrieveUpdateAPIView):
     """Manage the authenticated user."""
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        operation_id="manage_authenticated_user",
+        summary="Get / Update Authenticated User Profile",
+        description=(
+            "Retrieve or update the profile of the currently authenticated "
+            "user. GET returns the current user's details including username, "
+            "email, and role. PUT/PATCH allows updating profile fields such "
+            "as name, email, and password."
+        ),
+        responses={
+            200: UserSerializer,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Response - GET",
+                value={
+                    "id": 1,
+                    "username": "testuser",
+                    "email": "testuser@example.com",
+                    "image": None
+                },
+                response_only=True,
+                status_codes=["200"]
+            )
+        ]
+    )
+    def get(self, request, *args, **kwargs):
+        """Handle GET request for current user profile."""
+        return super().get(request, *args, **kwargs)
+
+    @extend_schema(
+        operation_id="update_authenticated_user",
+        summary="Update Authenticated User Profile",
+        description=(
+            "Partially or fully update the profile of the currently "
+            "authenticated user. Supports updating name, email, and password "
+            "fields."
+        ),
+        responses={
+            200: UserSerializer,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    def put(self, request, *args, **kwargs):
+        """Handle PUT request to update current user profile."""
+        return super().put(request, *args, **kwargs)
+
+    @extend_schema(
+        operation_id="partial_update_authenticated_user",
+        summary="Partially Update Authenticated User Profile",
+        description=(
+            "Partially update the profile of the currently authenticated "
+            "user. Only the provided fields will be updated."
+        ),
+        responses={
+            200: UserSerializer,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    def patch(self, request, *args, **kwargs):
+        """Handle PATCH request to partially update current user profile."""
+        return super().patch(request, *args, **kwargs)
 
     def get_object(self):
         """Retrieve and return the authenticated user."""
@@ -209,6 +362,78 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     permission_classes = [UserDetailPermission]
 
+    @extend_schema(
+        operation_id="get_user_detail",
+        summary="Get User Details",
+        description=(
+            "Retrieve details for a specific user by ID. Requires "
+            "appropriate permissions. Admin and staff users can access "
+            "any user's details. Regular users can only access their own."
+        ),
+        responses={
+            200: UserSerializer,
+            403: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        }
+    )
+    def get(self, request, *args, **kwargs):
+        """Handle GET request for user details."""
+        return super().get(request, *args, **kwargs)
+
+    @extend_schema(
+        operation_id="update_user_detail",
+        summary="Update User Details",
+        description=(
+            "Update details for a specific user by ID. Supports partial "
+            "updates. Admin and staff users can update any user. Regular "
+            "users can only update their own profile."
+        ),
+        responses={
+            200: UserSerializer,
+            400: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        }
+    )
+    def put(self, request, *args, **kwargs):
+        """Handle PUT request to update user details."""
+        return super().put(request, *args, **kwargs)
+
+    @extend_schema(
+        operation_id="partial_update_user_detail",
+        summary="Partially Update User Details",
+        description=(
+            "Partially update details for a specific user by ID. "
+            "Only provided fields will be updated."
+        ),
+        responses={
+            200: UserSerializer,
+            400: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        }
+    )
+    def patch(self, request, *args, **kwargs):
+        """Handle PATCH request to partially update user details."""
+        return super().patch(request, *args, **kwargs)
+
+    @extend_schema(
+        operation_id="delete_user",
+        summary="Delete User",
+        description=(
+            "Delete a specific user by ID. Requires appropriate permissions. "
+            "Admin and staff users can delete any user."
+        ),
+        responses={
+            204: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        }
+    )
+    def delete(self, request, *args, **kwargs):
+        """Handle DELETE request to remove a user."""
+        return super().delete(request, *args, **kwargs)
+
     def get_serializer(self, *args, **kwargs):
         """
         Instantiate the serializer with partial=True for PUT/PATCH requests.
@@ -222,6 +447,36 @@ class LogoutView(generics.GenericAPIView):
     serializer_class = LogoutSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        operation_id="logout_user",
+        summary="Logout User",
+        description=(
+            "Logout the authenticated user by blacklisting their refresh "
+            "token. Requires the refresh token to be sent in the request "
+            "body. After successful logout, the refresh token can no longer "
+            "be used to obtain new access tokens."
+        ),
+        request=LogoutSerializer,
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Logout",
+                value={"message": "logout_Success"},
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Invalid Refresh Token",
+                value={"detail": "refresh_token_not_valid"},
+                response_only=True,
+                status_codes=["400"]
+            )
+        ]
+    )
     def post(self, request):
         """Blacklist the refresh token."""
         try:
