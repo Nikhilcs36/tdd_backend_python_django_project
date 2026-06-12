@@ -7,6 +7,10 @@ from django.conf import settings
 from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from drf_spectacular.utils import (
+    extend_schema, OpenApiExample
+)
+from drf_spectacular.types import OpenApiTypes
 
 from game.models import GameScore
 from game.serializers import (
@@ -49,6 +53,37 @@ class CreateGameScoreView(GameSectionCheckMixin, generics.CreateAPIView):
     serializer_class = GameScoreSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        operation_id="create_game_score",
+        summary="Submit Game Score",
+        description=(
+            "Submit a new game score for the authenticated user. "
+            "The score is associated with the current user automatically. "
+            "Scores can be viewed via the 'My Scores' endpoint."
+        ),
+        responses={
+            201: GameScoreSerializer,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Score Submission",
+                value={
+                    "id": 1,
+                    "score": 85.00,
+                    "created_at": "2025-12-13T14:30:25Z"
+                },
+                response_only=True,
+                status_codes=["201"]
+            )
+        ]
+    )
+    def post(self, request, *args, **kwargs):
+        """Handle POST request to submit a game score."""
+        return self.create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         """Save the score with the current user."""
         logger.info(
@@ -64,6 +99,50 @@ class MyGameScoresView(GameSectionCheckMixin, generics.ListAPIView):
     serializer_class = GameScoreListSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = SafePageNumberPagination
+
+    @extend_schema(
+        operation_id="list_my_game_scores",
+        summary="Get My Game Scores",
+        description=(
+            "Retrieve the authenticated user's game scores, ordered by "
+            "highest score first. Returns paginated results along with the "
+            "user's best score. Includes pagination metadata (count, next, "
+            "previous)."
+        ),
+        responses={
+            200: GameScoreListSerializer(many=True),
+            401: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Response",
+                value={
+                    "best_score": 95.00,
+                    "count": 3,
+                    "next": None,
+                    "previous": None,
+                    "results": [
+                        {
+                            "id": 1,
+                            "score": 95.00,
+                            "created_at": "2025-12-13T14:30:25Z"
+                        },
+                        {
+                            "id": 2,
+                            "score": 82.50,
+                            "created_at": "2025-12-12T10:15:30Z"
+                        }
+                    ]
+                },
+                response_only=True,
+                status_codes=["200"]
+            )
+        ]
+    )
+    def get(self, request, *args, **kwargs):
+        """Handle GET request to list my game scores."""
+        return self.list(request, *args, **kwargs)
 
     def get_queryset(self):
         """Return only the current user's scores, ordered by best first."""
@@ -121,6 +200,49 @@ class GameLeaderboardView(
     serializer_class = LeaderboardSerializer
     permission_classes = [permissions.IsAuthenticated, IsStaffOrSuperUser]
     pagination_class = LeaderboardPagination
+
+    @extend_schema(
+        operation_id="get_game_leaderboard",
+        summary="Get Game Leaderboard (Admin Only)",
+        description=(
+            "Retrieve the game leaderboard showing the best score per user. "
+            "Only one entry per user is included (their highest score). "
+            "Ordered by score descending. Supports pagination. Requires "
+            "admin or staff privileges."
+        ),
+        responses={
+            200: LeaderboardSerializer(many=True),
+            401: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Response",
+                value={
+                    "count": 2,
+                    "next": None,
+                    "previous": None,
+                    "results": [
+                        {
+                            "username": "champion",
+                            "score": 95.00,
+                            "created_at": "2025-12-13T14:30:25Z"
+                        },
+                        {
+                            "username": "player2",
+                            "score": 82.50,
+                            "created_at": "2025-12-12T10:15:30Z"
+                        }
+                    ]
+                },
+                response_only=True,
+                status_codes=["200"]
+            )
+        ]
+    )
+    def get(self, request, *args, **kwargs):
+        """Handle GET request to retrieve leaderboard."""
+        return self.list(request, *args, **kwargs)
 
     def get_queryset(self):
         """
