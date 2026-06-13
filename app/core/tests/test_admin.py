@@ -295,6 +295,33 @@ class AdminSiteTests(TestCase):
         """Test that verify_emails action exists in actions"""
         self.assertIn('verify_emails', self.user_admin.actions)
 
+    def test_admin_site_header_displayed(self):
+        """Test that admin site header is set to 'Login Tracking Dashboard'"""
+        url = reverse('admin:index')
+        res = self.client.get(url)
+        self.assertContains(res, 'Login Tracking Dashboard')
+
+    def test_admin_site_title_set_correctly(self):
+        """Test that admin site title is set to 'Login Tracking Dashboard'"""
+        self.assertEqual(admin.site.site_header, 'Login Tracking Dashboard')
+        self.assertEqual(admin.site.site_title, 'Login Tracking Dashboard')
+
+    def test_admin_index_title_set_correctly(self):
+        """Test that admin index title is set to 'Dashboard'"""
+        self.assertEqual(admin.site.index_title, 'Dashboard')
+
+    def test_admin_site_header_appears_on_change_page(self):
+        """Test that site header appears on the user change page"""
+        url = reverse('admin:core_user_change', args=[self.user.id])
+        res = self.client.get(url)
+        self.assertContains(res, 'Login Tracking Dashboard')
+
+    def test_admin_site_header_appears_on_user_list_page(self):
+        """Test that site header appears on the user list page"""
+        url = reverse('admin:core_user_changelist')
+        res = self.client.get(url)
+        self.assertContains(res, 'Login Tracking Dashboard')
+
     def test_verify_emails_action_marks_users_verified(self):
         """Test that verify_emails bulk action marks users as verified"""
         # Create another unverified user

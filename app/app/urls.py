@@ -23,6 +23,10 @@ from drf_spectacular.views import (
     SpectacularRedocView,
 )
 
+admin.site.site_header = 'Login Tracking Dashboard'
+admin.site.site_title = 'Login Tracking Dashboard'
+admin.site.index_title = 'Dashboard'
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/schema/', SpectacularAPIView.as_view(), name='api-schema'),
