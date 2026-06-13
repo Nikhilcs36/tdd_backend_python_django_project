@@ -4,7 +4,7 @@
 
 This repository contains the backend code for a comprehensive **Login Tracking Dashboard** built using Django and Django Rest Framework. The project is developed using Test-Driven Development (TDD) methodology and provides advanced user authentication, detailed login analytics, and comprehensive dashboard functionality. This backend serves as the foundation for monitoring user login activities, tracking authentication patterns, and providing valuable insights through a powerful REST API.
 
-The primary focus of this project is the **Login Tracking Dashboard**, which offers real-time analytics and statistics about user login behavior, trends, and patterns. The system includes secure authentication mechanisms, user management, and role-based dashboard access to ensure data security and proper access control.
+The primary focus of this project is the **Login Tracking Dashboard**, which offers real-time analytics and statistics about user login behavior, trends, and patterns. The system includes secure authentication mechanisms, user management, role-based dashboard access, a circle drawing game backend, and downloadable Excel reports to ensure data security and proper access control.
 
 ---
 
@@ -58,6 +58,24 @@ The TDD approach was particularly valuable for building the Login Tracking Dashb
 - **Role-based Access**: Different dashboard views for regular users and administrators
 - **User Filtering**: List users with role-based filtering (`admin`/`regular`) and `me` parameter
 - **Pagination**: Customizable pagination for user listings and login activity
+- **Optional Name Field**: The `name` field on the user model is optional and excluded from the admin user creation form
+
+### Game Section
+- **Circle Drawing Game Backend**: Submit and track scores for a circle drawing game
+- **Score Submission**: Authenticated users can submit their game scores
+- **My Scores**: Users can view their own scores with best score tracking, paginated
+- **Game Leaderboard**: Admin-only leaderboard showing the best score per user, ordered by score descending
+- **Feature Flags**: The game section and leaderboard can be independently enabled/disabled via environment variables (`GAME_SECTION_ENABLED`, `GAME_LEADERBOARD_ENABLED`)
+- **Role-based Access**: Score submission and personal score viewing are available to all authenticated users; leaderboard requires admin/staff privileges
+
+### Login Tracking Summary Report Download
+- **Excel Report Generation**: Download comprehensive login activity summary reports in professionally formatted Excel (.xlsx) format
+- **Individual Mode**: Single user report — regular users can download their own report; admins can download for any user
+- **Grouped Mode**: Combined report for multiple users (admin only)
+- **Flexible Filtering**: Filter by date range, user role, user IDs, or predefined filters (`all`, `admin_only`, `regular_users`, `me`)
+- **Feature Flag**: Report download can be enabled/disabled via `ENABLE_REPORT_DOWNLOAD` environment variable
+- **Detailed Report Data**: Includes report metadata (user info, date period), recent login activities, top user agents, summary statistics (total/successful/failed logins, success rate), daily login trends, weekly/monthly comparison, success/failure distribution ratio, and grouped summary with combined totals for admin overview
+- **Professional Formatting**: Styled Excel output with headers, borders, auto-adjusted column widths, and separate sheets for different data views
 
 ### User Access Levels Comparison
 
@@ -79,6 +97,12 @@ The TDD approach was particularly valuable for building the Login Tracking Dashb
 | Filter data by user role | ❌ | ✅ |
 | Access batch user statistics | ❌ | ✅ |
 | View other users' login activity | ❌ | ✅ |
+| Submit game scores | ✅ | ✅ |
+| View own game scores | ✅ | ✅ |
+| Access game leaderboard | ❌ | ✅ |
+| Download own login report (individual mode) | ✅ | ✅ |
+| Download any user's login report | ❌ | ✅ |
+| Download grouped reports | ❌ | ✅ |
 
 ### Authentication & Security
 - **JWT Token Authentication**: Secure token-based authentication using DRF SimpleJWT
@@ -119,6 +143,13 @@ The TDD approach was particularly valuable for building the Login Tracking Dashb
 - **CORS Configuration**: Configured to allow requests from frontend development server (`http://localhost:5173`)
 - **Timezone**: Configured to `Asia/Kolkata`
 - **Max Upload Size**: 2MB limit for profile image uploads
+
+### Feature Flags
+- **GAME_SECTION_ENABLED**: Enable/disable the entire game section (default: `True`)
+- **GAME_LEADERBOARD_ENABLED**: Enable/disable the game leaderboard (default: `True`)
+- **ENABLE_REPORT_DOWNLOAD**: Enable/disable login report download (default: `True`)
+
+---
 
 ## Installation
 
@@ -267,6 +298,16 @@ python manage.py runserver
 - `GET /api/user/<user_id>/dashboard/stats/` - User-specific statistics (role-based access)
 - `GET /api/user/<user_id>/dashboard/login-activity/` - User-specific login activity (role-based access)
 
+### Report Download Endpoint
+- `GET /api/user/dashboard/report/download/?mode=<mode>` - Download login activity summary report in Excel format
+  - **Parameters**: `mode` (required: `individual` or `grouped`), `user_ids[]`, `start_date`, `end_date`, `filter` (`all`/`admin_only`/`regular_users`/`me`), `role` (`admin`/`regular`), `selected_user_id`
+  - **Permissions**: Regular users can download their own report in individual mode; admins can download for any user(s)
+
+### Game Endpoints
+- `POST /api/game/scores/` - Submit a game score (authenticated users)
+- `GET /api/game/my-scores/` - List my game scores with best score (authenticated users, paginated)
+- `GET /api/game/leaderboard/` - Game leaderboard — best score per user (admin/staff only, paginated)
+
 ### API Documentation
 - `GET /api/schema/` - API schema
 - `GET /api/docs/` - [Swagger UI documentation](http://localhost:8000/api/docs/)
@@ -289,6 +330,18 @@ python manage.py runserver
 3. **Login**: Authenticate using your email and password
 4. **View Dashboard**: Access your personal dashboard with login statistics
 5. **Admin Access**: Administrators can access comprehensive admin dashboard
+
+### Using Game Features
+
+1. **Submit a Score**: Authenticated users can submit a game score via `POST /api/game/scores/`
+2. **View Scores**: Access your own scores via `GET /api/game/my-scores/` (includes best score)
+3. **Leaderboard**: Admins can view the global leaderboard via `GET /api/game/leaderboard/`
+
+### Downloading Login Reports
+
+1. **Individual Report**: `GET /api/user/dashboard/report/download/?mode=individual` — downloads your own login report
+2. **Grouped Report (Admin)**: `GET /api/user/dashboard/report/download/?mode=grouped` — downloads combined report for all users
+3. **Custom Filtering**: Add `start_date`, `end_date`, `user_ids[]`, `role`, or `filter` parameters to customize the report
 
 ### API Integration
 
@@ -347,7 +400,7 @@ You can customize the application by modifying the following files:
 ### Core Application Files
 - `app/core/models.py` - Database models for User and LoginActivity
 - `app/core/views.py` - Core application views and logic
-- `app/core/admin.py` - Admin interface configuration
+- `app/core/admin.py` - Admin interface configuration (custom site header: "Login Tracking Dashboard")
 - `app/core/email_service.py` - Email sending logic and URL building
 - `app/core/authentication.py` - Custom email-based authentication backend
 - `app/core/exceptions.py` - Custom exception handler for JWT errors
@@ -358,13 +411,24 @@ You can customize the application by modifying the following files:
 - `app/user/models.py` - User-related models (if any extensions)
 - `app/user/views.py` - User authentication and management views
 - `app/user/views_dashboard.py` - Dashboard views and analytics
+- `app/user/views_report.py` - Report download views and logic
 - `app/user/serializers.py` - API serializers for user data
 - `app/user/serializers_dashboard.py` - Dashboard data serializers
 - `app/user/urls.py` - URL routing for user endpoints
-- `app/user/permissions.py` - Custom permission classes
+- `app/user/permissions.py` - Custom permission classes (`IsSuperUser`, `IsStaffOrSuperUser`)
 - `app/user/validators.py` - Username, email, and password validators
 - `app/user/pagination.py` - Custom pagination classes
 - `app/user/fields.py` - Custom serializer fields (RelativeURLFileField)
+- `app/user/mixins.py` - Shared mixins for date filtering and user filtering
+- `app/user/reports/` - Report generation modules:
+  - `data_collector.py` - Collects login data for reports
+  - `excel_generator.py` - Generates formatted Excel reports
+
+### Game Files
+- `app/game/models.py` - GameScore model
+- `app/game/views.py` - Game views (score submission, my scores, leaderboard) with feature flag support
+- `app/game/serializers.py` - Game score serializers
+- `app/game/urls.py` - URL routing for game endpoints
 
 ### Configuration Files
 - `app/app/settings.py` - Django project settings
@@ -375,6 +439,11 @@ You can customize the application by modifying the following files:
 - Modify dashboard statistics in `app/user/views_dashboard.py`
 - Customize charts and analytics endpoints
 - Add new dashboard metrics and visualizations
+
+### Feature Flag Configuration
+- **`GAME_SECTION_ENABLED`** (default: `True`): Set to `False` in `.env` to disable all game features
+- **`GAME_LEADERBOARD_ENABLED`** (default: `True`): Set to `False` in `.env` to disable the leaderboard
+- **`ENABLE_REPORT_DOWNLOAD`** (default: `True`): Set to `False` in `.env` to disable report downloads
 
 ---
 
@@ -396,6 +465,8 @@ python manage.py runserver
 
 3. **Access admin interface**: Visit `http://localhost:8000/admin/`
 
+The admin site features a custom header: **"Login Tracking Dashboard"** with a **"Dashboard"** index title.
+
 ### Admin Features
 - **User Management**: View, edit, and manage user accounts
 - **Email Verification**: View and manage email verification status
@@ -403,6 +474,7 @@ python manage.py runserver
 - **Login Activity Monitoring**: Monitor all user login activities
 - **Dashboard Analytics**: Access comprehensive admin dashboard
 - **Security Monitoring**: Track security events and suspicious activities
+- **Role-based Access Control**: Only superusers can add, edit, or delete users; staff users have view-only access
 
 ---
 
