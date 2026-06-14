@@ -31,6 +31,11 @@ urlpatterns = [
          views.UserDetailView.as_view(),
          name='user-detail'),
     path('logout/', views.LogoutView.as_view(), name='logout'),
+    path(
+        'switch-role/',
+        views.SwitchRoleView.as_view(),
+        name='switch-role'
+    ),
     # Dashboard endpoints
     path('dashboard/stats/', UserStatsView.as_view(), name='dashboard-stats'),
     path('dashboard/login-activity/',

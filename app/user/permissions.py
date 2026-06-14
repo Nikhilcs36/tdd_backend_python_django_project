@@ -12,12 +12,23 @@ class IsSuperUser(permissions.BasePermission):
 
 class IsStaffOrSuperUser(permissions.BasePermission):
     """
-    Allows access only to staff or superusers.
+    Allows access only to staff or superusers with active_role enabled.
+
+    Respects the active_role field so that when a user switches to
+    'regular' role, they are denied access to staff-only endpoints.
     """
 
     def has_permission(self, request, view):
-        return request.user and (request.user.is_staff
-                                 or request.user.is_superuser)
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        # Superuser has access when active_role is 'superuser' or 'staff'
+        if user.is_superuser and user.active_role in ('superuser', 'staff'):
+            return True
+        # Staff user has access only when active_role is 'staff'
+        if user.is_staff and user.active_role == 'staff':
+            return True
+        return False
 
 
 class UserDetailPermission(permissions.BasePermission):

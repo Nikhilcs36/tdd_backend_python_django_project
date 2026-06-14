@@ -28,6 +28,8 @@ class UserManager(BaseUserManager):
         user.is_staff = True
         user.is_superuser = True
         user.email_verified = True
+        user.active_role = 'superuser'
+        user.staff_access_granted = True
         user.save(using=self._db)
 
         return user
@@ -49,6 +51,17 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_login_timestamp = models.DateTimeField(null=True, blank=True)
     weekly_logins = models.JSONField(default=dict, blank=True)
     monthly_logins = models.JSONField(default=dict, blank=True)
+    # Auto-staff access fields
+    staff_access_granted = models.BooleanField(default=False)
+    active_role = models.CharField(
+        max_length=10,
+        choices=[
+            ('regular', 'Regular'),
+            ('staff', 'Staff'),
+            ('superuser', 'Superuser'),
+        ],
+        default='regular'
+    )
     # Email verification fields
     email_verified = models.BooleanField(default=False)
     verification_token = models.CharField(
