@@ -44,6 +44,8 @@ class RoleBasedAccessTests(TestCase):
             password='staffpass123',
             is_staff=True
         )
+        self.staff_user.active_role = 'staff'
+        self.staff_user.save()
 
         # Create login activities for testing
         self._create_test_login_activities()

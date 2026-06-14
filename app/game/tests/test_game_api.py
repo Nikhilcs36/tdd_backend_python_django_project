@@ -26,12 +26,18 @@ LEADERBOARD_URL = reverse('game:leaderboard')
 def create_user(username='testuser', email='test@example.com',
                 password='Password123', is_staff=False):
     """Helper function to create a user."""
-    return User.objects.create_user(
+    user = User.objects.create_user(
         username=username,
         email=email,
         password=password,
         is_staff=is_staff
     )
+    # Set active_role to 'staff' for staff users so
+    # IsStaffOrSuperUser permission grants access
+    if is_staff:
+        user.active_role = 'staff'
+        user.save()
+    return user
 
 
 class GameScoreModelTests(TestCase):

@@ -1525,6 +1525,7 @@ class StaffUserApiTests(TestCase):
             is_staff=True
         )
         self.user.email_verified = True
+        self.user.active_role = 'staff'
         self.user.save()
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)

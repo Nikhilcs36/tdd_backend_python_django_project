@@ -248,6 +248,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             self.fail('no_active_account')
             return  # This line won't be reached but helps with flow clarity
 
+        # Superuser: reset active_role on every login (temporary switch)
+        if user.is_superuser:
+            user.active_role = 'superuser'
+            user.staff_access_granted = True
+            user.save()
+
         # User exists, authenticated successfully, and email is verified
         refresh = self.get_token(user)
 
@@ -264,6 +270,31 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data.update({'is_superuser': user.is_superuser})
         # Add email verification status
         data.update({'email_verified': user.email_verified})
+
+        # Auto-staff access countdown fields
+        # Note: LoginActivity is created by middleware AFTER this response,
+        # so we add 1 to login_count to account for the current login
+        STAFF_THRESHOLD = 3
+        if user.is_superuser:
+            data['logins_remaining_for_staff'] = 0
+            data['staff_access_granted'] = True
+        else:
+            remaining = max(
+                0, STAFF_THRESHOLD - (user.login_count + 1))
+            data['logins_remaining_for_staff'] = remaining
+            data['staff_access_granted'] = user.staff_access_granted
+
+        # Active role and role label
+        if user.is_superuser:
+            data['active_role'] = 'superuser'
+            data['role_label'] = 'Superuser'
+        elif user.staff_access_granted:
+            data['active_role'] = user.active_role
+            data['role_label'] = (
+                'Staff' if user.active_role == 'staff' else 'Regular')
+        else:
+            data['active_role'] = 'regular'
+            data['role_label'] = 'Regular'
 
         return data
 

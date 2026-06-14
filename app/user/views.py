@@ -866,6 +866,89 @@ class ResetPasswordView(generics.GenericAPIView):
             )
 
 
+class SwitchRoleView(generics.GenericAPIView):
+    """Switch the active role of the authenticated user.
+
+    Superusers can switch between 'regular', 'staff', and 'superuser'.
+    Staff users (auto-granted via 3 logins) can switch between
+    'regular' and 'staff'.
+    Regular users cannot switch roles.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        operation_id="switch_user_role",
+        summary="Switch Active User Role",
+        description=(
+            "Switch the active role for the authenticated user. "
+            "Superusers can switch between 'regular', 'staff', and "
+            "'superuser'. Staff users can switch between 'regular' "
+            "and 'staff'. Regular users cannot switch roles."
+        ),
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'role': {
+                        'type': 'string',
+                        'enum': ['regular', 'staff', 'superuser'],
+                        'description': 'Role to switch to'
+                    }
+                },
+                'required': ['role']
+            }
+        },
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                "Successful Switch",
+                value={"active_role": "regular",
+                       "message": "Switched to regular mode"},
+                response_only=True,
+                status_codes=["200"]
+            )
+        ]
+    )
+    def post(self, request):
+        """Handle POST request to switch active role."""
+        role = request.data.get('role')
+        user = request.user
+
+        # Validate role value
+        valid_roles = ['regular', 'staff']
+        if user.is_superuser:
+            valid_roles.append('superuser')
+
+        if not role or role not in valid_roles:
+            return Response(
+                {'error': 'Invalid role. Must be one of: '
+                 + ', '.join(valid_roles) + '.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if user is allowed to switch
+        if (not user.is_superuser and
+                not user.staff_access_granted):
+            return Response(
+                {'error': 'Staff access not yet granted. '
+                 'Keep logging in to unlock staff access.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        user.active_role = role
+        user.save()
+
+        return Response({
+            'active_role': user.active_role,
+            'message': f'Switched to {role} mode'
+        }, status=status.HTTP_200_OK)
+
+
 class PublicKeyView(APIView):
     """Return the RSA public key for login credential encryption."""
 
