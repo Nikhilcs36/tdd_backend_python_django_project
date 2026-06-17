@@ -272,15 +272,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data.update({'email_verified': user.email_verified})
 
         # Auto-staff access countdown fields
-        # Note: LoginActivity is created by middleware AFTER this response,
-        # so we add 1 to login_count to account for the current login
+        # Note: LoginActivity is created by middleware AFTER this response
         STAFF_THRESHOLD = 3
         if user.is_superuser:
             data['logins_remaining_for_staff'] = 0
             data['staff_access_granted'] = True
         else:
             remaining = max(
-                0, STAFF_THRESHOLD - (user.login_count + 1))
+                0, STAFF_THRESHOLD - user.login_count)
             data['logins_remaining_for_staff'] = remaining
             data['staff_access_granted'] = user.staff_access_granted
 
