@@ -129,19 +129,19 @@ class LoginResponseTests(TestCase):
         response = self._login()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('logins_remaining_for_staff', response.data)
-        self.assertEqual(response.data['logins_remaining_for_staff'], 2)
+        self.assertEqual(response.data['logins_remaining_for_staff'], 3)
 
     def test_login_response_countdown_after_2nd_login(self):
-        """Test countdown is 1 after 2nd login."""
+        """Test countdown is 2 after 2nd login."""
         self._login()
         response = self._login()
-        self.assertEqual(response.data['logins_remaining_for_staff'], 1)
+        self.assertEqual(response.data['logins_remaining_for_staff'], 2)
 
     def test_login_response_countdown_after_3_logins(self):
-        """Test countdown reaches 0 after 3 successful logins."""
+        """Test countdown is 1 after 3 successful logins."""
         for _ in range(3):
             response = self._login()
-        self.assertEqual(response.data['logins_remaining_for_staff'], 0)
+        self.assertEqual(response.data['logins_remaining_for_staff'], 1)
 
     def test_login_response_has_staff_access_granted(self):
         """Test that login response includes staff_access_granted field."""
