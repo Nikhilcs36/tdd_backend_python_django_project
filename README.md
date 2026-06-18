@@ -103,6 +103,8 @@ The TDD approach was particularly valuable for building the Login Tracking Dashb
 | Download own login report (individual mode) | ✅ | ✅ |
 | Download any user's login report | ❌ | ✅ |
 | Download grouped reports | ❌ | ✅ |
+| View auto staff access countdown (`logins_remaining_for_staff`) | ✅ | ✅ |
+| Switch active role | ❌ | ✅ |
 
 ### Authentication & Security
 - **JWT Token Authentication**: Secure token-based authentication using DRF SimpleJWT
@@ -113,6 +115,8 @@ The TDD approach was particularly valuable for building the Login Tracking Dashb
 - **Welcome Email**: Automated welcome email sent after successful email verification
 - **Password Reset**: Secure password reset functionality with token validation (1-hour token expiration)
 - **RSA Encrypted Login Credentials**: Login passwords are encrypted using RSA-OAEP with SHA-256 before being sent over the network. The public key is served at `GET /api/user/public-key/`, and the private key never leaves the server. RSA keys are auto-generated on server startup — no manual setup required.
+- **Auto Staff Access**: After 3 successful logins, users are automatically granted staff access (`is_staff=True`) via middleware. Login response includes `logins_remaining_for_staff` countdown (3, 2, 1, 0), `staff_access_granted` status, `active_role` ('regular'/'staff'/'superuser'), and `role_label` for frontend role-based UI control.
+- **Role Switching**: Authenticated users with staff or superuser privileges can switch their active role via `POST /api/user/switch-role/`. Superusers can switch between 'regular', 'staff', and 'superuser'. Staff users can switch between 'regular' and 'staff'.
 - **Login Activity Tracking**: Detailed tracking of all login attempts via `LoginTrackingMiddleware`, including success/failed attempts, IP addresses, and user agents
 - **Login Activity Model**: Persistent storage of login attempts with timestamp, IP address, user agent, and success status
 - **Security Monitoring**: Monitor suspicious login activities, failed login attempts, and security patterns
@@ -265,8 +269,9 @@ python manage.py runserver
 
 ### Authentication Endpoints
 - `GET /api/user/public-key/` - Get RSA public key for login credential encryption
-- `POST /api/user/token/` - Obtain JWT token (accepts `email` and `password`; also supports `encrypted_password`)
+- `POST /api/user/token/` - Obtain JWT token (accepts `email` and `password`; also supports `encrypted_password`). Returns user details including `logins_remaining_for_staff` (countdown: 3, 2, 1, 0), `staff_access_granted`, `active_role` ('regular'/'staff'/'superuser'), and `role_label` for frontend role-based UI control
 - `POST /api/user/token/refresh/` - Refresh JWT token
+- `POST /api/user/switch-role/` - Switch active role (superusers: 'regular'/'staff'/'superuser'; staff users: 'regular'/'staff'). Requires `{"role": "..."}` in request body
 - `POST /api/user/create/` - User registration
 - `POST /api/user/logout/` - User logout (blacklists refresh token)
 - `POST /api/user/verify-email/` - Email verification

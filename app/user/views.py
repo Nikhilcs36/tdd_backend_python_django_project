@@ -115,7 +115,14 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             "Returns access and refresh JWT tokens. The password should be "
             "encrypted using the RSA public key obtained from the "
             "/public-key/ endpoint before sending. Returns user details "
-            "including username, email, privilege, and verification status."
+            "including username, email, privilege, and verification status. "
+            "Also returns `logins_remaining_for_staff` "
+            "(countdown: 3, 2, 1, 0) "
+            "indicating how many more successful logins are needed "
+            "to auto-grant staff access, `staff_access_granted` "
+            "(boolean), `active_role` "
+            "('regular'/'staff'/'superuser'), and `role_label` for frontend "
+            "role-based UI control."
         ),
         responses={
             200: CustomTokenObtainPairSerializer,
@@ -124,7 +131,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         },
         examples=[
             OpenApiExample(
-                "Successful Login",
+                "Successful Login - Regular User (countdown 2)",
                 value={
                     "access": "eyJ0eXAiOiJKV1Qi...",
                     "refresh": "eyJ0eXAiOiJKV1Qi...",
@@ -133,7 +140,49 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                     "email": "testuser@example.com",
                     "is_staff": False,
                     "is_superuser": False,
-                    "email_verified": True
+                    "email_verified": True,
+                    "logins_remaining_for_staff": 2,
+                    "staff_access_granted": False,
+                    "active_role": "regular",
+                    "role_label": "Regular"
+                },
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Login - Staff User (access granted)",
+                value={
+                    "access": "eyJ0eXAiOiJKV1Qi...",
+                    "refresh": "eyJ0eXAiOiJKV1Qi...",
+                    "id": 2,
+                    "username": "staffuser",
+                    "email": "staffuser@example.com",
+                    "is_staff": True,
+                    "is_superuser": False,
+                    "email_verified": True,
+                    "logins_remaining_for_staff": 0,
+                    "staff_access_granted": True,
+                    "active_role": "staff",
+                    "role_label": "Staff"
+                },
+                response_only=True,
+                status_codes=["200"]
+            ),
+            OpenApiExample(
+                "Successful Login - Superuser",
+                value={
+                    "access": "eyJ0eXAiOiJKV1Qi...",
+                    "refresh": "eyJ0eXAiOiJKV1Qi...",
+                    "id": 3,
+                    "username": "admin",
+                    "email": "admin@example.com",
+                    "is_staff": True,
+                    "is_superuser": True,
+                    "email_verified": True,
+                    "logins_remaining_for_staff": 0,
+                    "staff_access_granted": True,
+                    "active_role": "superuser",
+                    "role_label": "Superuser"
                 },
                 response_only=True,
                 status_codes=["200"]
