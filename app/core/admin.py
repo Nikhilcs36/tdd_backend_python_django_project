@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from .models import User, LoginActivity
 from .email_service import send_verification_email, build_verification_url
 
 
@@ -98,3 +98,28 @@ class UserAdmin(BaseUserAdmin):
     def has_delete_permission(self, request, obj=None):
         """Only superusers can delete records."""
         return request.user.is_active and request.user.is_superuser
+
+
+@admin.register(LoginActivity)
+class LoginActivityAdmin(admin.ModelAdmin):
+    """Admin configuration for LoginActivity model."""
+    list_display = ['user', 'timestamp', 'ip_address', 'success']
+    list_filter = ['timestamp', 'success']
+    search_fields = ['user__username', 'user__email', 'ip_address']
+    readonly_fields = [
+        'user', 'timestamp', 'ip_address', 'user_agent', 'success'
+    ]
+    ordering = ['-timestamp']
+    list_per_page = 25
+
+    def has_add_permission(self, request):
+        """Prevent adding login activity records via admin."""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Allow viewing but prevent editing of login activity records."""
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        """Prevent deleting login activity records via admin."""
+        return False

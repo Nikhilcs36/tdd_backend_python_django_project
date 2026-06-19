@@ -406,7 +406,7 @@ You can customize the application by modifying the following files:
 ### Core Application Files
 - `app/core/models.py` - Database models for User and LoginActivity
 - `app/core/views.py` - Core application views and logic
-- `app/core/admin.py` - Admin interface configuration (custom site header: "Login Tracking Dashboard")
+- `app/core/admin.py` - Admin interface configuration (UserAdmin, LoginActivityAdmin, custom site header: "Login Tracking Dashboard")
 - `app/core/email_service.py` - Email sending logic and URL building
 - `app/core/authentication.py` - Custom email-based authentication backend
 - `app/core/exceptions.py` - Custom exception handler for JWT errors
@@ -478,6 +478,7 @@ The admin site features a custom header: **"Login Tracking Dashboard"** with a *
 - **Email Verification**: View and manage email verification status
 - **Bulk Email Verification**: Mark multiple users as email verified via admin action
 - **Login Activity Monitoring**: Monitor all user login activities
+- **Login Activity Records**: View-only admin interface for login activity records with search by username/IP, filter by success status and date range, sorted by most recent
 - **Dashboard Analytics**: Access comprehensive admin dashboard
 - **Security Monitoring**: Track security events and suspicious activities
 - **Role-based Access Control**: Only superusers can add, edit, or delete users; staff users have view-only access
