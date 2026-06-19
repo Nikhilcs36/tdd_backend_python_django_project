@@ -3,7 +3,7 @@ from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.contrib import admin
-from ..models import User
+from ..models import User, LoginActivity
 
 
 class AdminSiteTests(TestCase):
@@ -348,3 +348,159 @@ class AdminSiteTests(TestCase):
         unverified_user.refresh_from_db()
         self.assertTrue(self.user.email_verified)
         self.assertTrue(unverified_user.email_verified)
+
+
+class LoginActivityAdminTests(TestCase):
+    """Test cases for LoginActivity admin registration."""
+
+    def setUp(self):
+        self.client = Client()
+        self.admin_user = get_user_model().objects.create_superuser(
+            username='admin',
+            email='admin@example.com',
+            password='password123'
+        )
+        self.client.force_login(self.admin_user)
+
+        # Create a regular user for the login activity
+        self.regular_user = get_user_model().objects.create_user(
+            username='regularuser',
+            email='regular@example.com',
+            password='password123'
+        )
+
+        # Create a login activity record
+        self.login_activity = LoginActivity.objects.create(
+            user=self.regular_user,
+            ip_address='192.168.1.1',
+            user_agent='Mozilla/5.0',
+            success=True
+        )
+
+    def test_login_activity_model_registered_in_admin(self):
+        """Test LoginActivity model is registered in admin."""
+        self.assertIn(
+            LoginActivity,
+            admin.site._registry,
+            'LoginActivity model should be registered in admin site'
+        )
+
+    def test_login_activity_list_page_loads(self):
+        """Test that the login activity list page loads for superuser."""
+        url = reverse('admin:core_loginactivity_changelist')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+
+    def test_login_activity_list_displays_username(self):
+        """Test that login activity list displays the username."""
+        url = reverse('admin:core_loginactivity_changelist')
+        res = self.client.get(url)
+        self.assertContains(res, self.regular_user.username)
+
+    def test_login_activity_list_displays_ip_address(self):
+        """Test that login activity list displays the IP address."""
+        url = reverse('admin:core_loginactivity_changelist')
+        res = self.client.get(url)
+        self.assertContains(res, '192.168.1.1')
+
+    def test_login_activity_list_displays_success_status(self):
+        """Test that login activity list displays the success status."""
+        url = reverse('admin:core_loginactivity_changelist')
+        res = self.client.get(url)
+        # Should display a checkmark or "True" for success
+        self.assertContains(res, self.regular_user.username)
+
+    def test_login_activity_list_search_by_username(self):
+        """Test that login activity list can be searched by username."""
+        url = reverse('admin:core_loginactivity_changelist')
+        res = self.client.get(url, {'q': 'regularuser'})
+        self.assertContains(res, '192.168.1.1')
+
+    def test_login_activity_list_search_by_ip_address(self):
+        """Test that login activity list can be searched by IP address."""
+        url = reverse('admin:core_loginactivity_changelist')
+        res = self.client.get(url, {'q': '192.168.1'})
+        self.assertContains(res, self.regular_user.username)
+
+    def test_login_activity_filter_by_success(self):
+        """Test that login activity list can be filtered by success."""
+        url = reverse('admin:core_loginactivity_changelist')
+        res = self.client.get(url, {'success__exact': '1'})
+        self.assertEqual(res.status_code, 200)
+
+    def test_login_activity_list_ordering_by_timestamp_desc(self):
+        """Test that login activity list is ordered by timestamp descending."""
+        login_admin = admin.site._registry[LoginActivity]
+        self.assertEqual(
+            login_admin.ordering,
+            ['-timestamp']
+        )
+
+    def test_login_activity_detail_page_shows_all_fields(self):
+        """Test that login activity detail page shows all fields."""
+        url = reverse(
+            'admin:core_loginactivity_change',
+            args=[self.login_activity.id]
+        )
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, self.regular_user.username)
+        self.assertContains(res, '192.168.1.1')
+        self.assertContains(res, 'Mozilla/5.0')
+
+    def test_login_activity_add_permission_denied_for_all(self):
+        """Test that no one can add login activity via admin."""
+        url = reverse('admin:core_loginactivity_add')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 403)
+
+    def test_login_activity_delete_permission_denied_for_superuser(self):
+        """Test that superuser cannot delete login activity via admin."""
+        url = reverse(
+            'admin:core_loginactivity_delete',
+            args=[self.login_activity.id]
+        )
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 403)
+
+    def test_staff_can_view_login_activity_list(self):
+        """Test that staff can view the login activity list."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser',
+            email='staff@example.com',
+            password='password123',
+            is_staff=True
+        )
+        self.client.force_login(staff_user)
+        url = reverse('admin:core_loginactivity_changelist')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+
+    def test_staff_cannot_add_login_activity(self):
+        """Test that staff cannot add login activity."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser2',
+            email='staff2@example.com',
+            password='password123',
+            is_staff=True
+        )
+        self.client.force_login(staff_user)
+        url = reverse('admin:core_loginactivity_add')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 403)
+
+    def test_staff_cannot_delete_login_activity(self):
+        """Test that staff cannot delete login activity."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser3',
+            email='staff3@example.com',
+            password='password123',
+            is_staff=True
+        )
+        self.client.force_login(staff_user)
+        url = reverse(
+            'admin:core_loginactivity_delete',
+            args=[self.login_activity.id]
+        )
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 403)
