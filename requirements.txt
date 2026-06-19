@@ -8,3 +8,4 @@ python-dotenv>=1.0.0,<2.0  # Load environment variables from .env file
 django-cors-headers>=3.13.0,<3.14  # CORS support for Django
 cryptography>=48.0.0,<49.0  # RSA encryption for login credential security
 openpyxl>=3.1.0,<4.0        # Excel report generation
+schedule>=1.0.0,<2.0         # Scheduled job runner for daily token cleanup
