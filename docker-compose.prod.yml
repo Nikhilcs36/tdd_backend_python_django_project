@@ -26,6 +26,7 @@ services:
       - app-static:/app/static
     networks:
       - tdd-network
+    restart: unless-stopped
 
   # ===============================================================
   # db:                            ← COMMENTED OUT: Using RDS instead
@@ -66,6 +67,7 @@ services:
       - frontend
     networks:
       - tdd-network
+    restart: unless-stopped
 
 volumes:
   # prod-db-data:                # Commented out — not needed with RDS
