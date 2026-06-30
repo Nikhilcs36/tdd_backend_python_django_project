@@ -8,7 +8,7 @@ services:
       sh -c "python manage.py wait_for_db &&
              python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-             gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 1"
+              gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 3"
     # ---------------------------------------------------------------
     # environment:                # Commented: .env.production handles DB config
     #   - DB_HOST=db              # Uncomment these if NOT using RDS (Docker MySQL)
