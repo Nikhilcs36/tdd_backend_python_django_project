@@ -1,0 +1,127 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block branding %}
+<div id="site-name">
+    <a href="{% url 'admin:index' %}">
+        {{ site_header|default:_('Django administration') }}
+    </a>
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+<style>
+    /* Make the header more spacious with flex layout */
+    #header {
+        padding: 20px 30px;
+        background: #1a1a2e;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    #branding {
+        float: none;
+    }
+    #branding h1 {
+        font-size: 20px;
+        font-weight: 600;
+        margin: 0;
+    }
+    #branding h1 a {
+        color: #ffffff;
+    }
+    #user-tools {
+        float: none;
+        font-size: 13px;
+        padding-top: 0;
+        letter-spacing: 0.3px;
+    }
+    #user-tools a {
+        border-bottom: none;
+        text-decoration: none;
+    }
+    #user-tools a:hover {
+        text-decoration: underline;
+    }
+
+    /* Role banner styling */
+    .role-info-banner {
+        margin: 8px 30px !important;
+        padding: 6px 12px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        background: #f8f9fa !important;
+        border: 1px solid #e0e0e0 !important;
+        font-size: 12px !important;
+    }
+
+    /* Increase content area padding for better spacing */
+    #content {
+        padding: 20px 30px;
+    }
+    .dashboard #content {
+        padding: 20px 30px;
+    }
+
+    /* Breadcrumb and module spacing */
+    .breadcrumbs {
+        padding: 12px 30px;
+        font-size: 13px;
+    }
+    .module {
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block nav-global %}
+{% if user.is_authenticated %}
+<div id="role-info" class="role-info-banner">
+    <div style="display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap;">
+        {% if user.is_superuser %}
+        <span style="
+            color: #dc3545;
+            font-weight: bold;
+            background: #fff;
+            padding: 1px 6px;
+            border-radius: 3px;
+            border: 1px solid #dc3545;
+            white-space: nowrap;
+            font-size: 11px;
+        ">SUPERUSER</span>
+        <span style="color: #6c757d;">
+            — <strong>Full access</strong>: Create, Read, Update, Delete any user
+        </span>
+        {% elif user.is_staff %}
+        <span style="
+            color: #856404;
+            font-weight: bold;
+            background: #fff3cd;
+            padding: 1px 6px;
+            border-radius: 3px;
+            border: 1px solid #ffc107;
+            white-space: nowrap;
+            font-size: 11px;
+        ">STAFF</span>
+        <span style="color: #6c757d;">
+            — <strong>Read-only</strong>: View users details
+        </span>
+        {% else %}
+        <span style="
+            color: #28a745;
+            font-weight: bold;
+            background: #fff;
+            padding: 1px 6px;
+            border-radius: 3px;
+            border: 1px solid #28a745;
+            white-space: nowrap;
+            font-size: 11px;
+        ">REGULAR</span>
+        <span style="color: #6c757d;">
+            — <strong>No admin access</strong>
+        </span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

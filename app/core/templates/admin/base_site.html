@@ -1,0 +1,70 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block branding %}
+<div id="site-name">
+    <a href="{% url 'admin:index' %}">
+        {{ site_header|default:_('Django administration') }}
+    </a>
+</div>
+{% endblock %}
+
+{% block nav-global %}
+{% if user.is_authenticated %}
+<div id="role-info" class="role-info-banner" style="
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px 15px;
+    margin: 10px 15px;
+    font-size: 14px;
+    line-height: 1.5;
+">
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        {% if user.is_superuser %}
+        <span style="
+            color: #dc3545;
+            font-weight: bold;
+            background: #fff;
+            padding: 3px 10px;
+            border-radius: 3px;
+            border: 1px solid #dc3545;
+        ">SUPERUSER</span>
+        <span style="color: #6c757d;">
+            — You have <strong>full administrative access</strong>:
+            Create, Read, Update, and Delete any user record.
+            Full system configuration.
+        </span>
+        {% elif user.is_staff %}
+        <span style="
+            color: #856404;
+            font-weight: bold;
+            background: #fff3cd;
+            padding: 3px 10px;
+            border-radius: 3px;
+            border: 1px solid #ffc107;
+        ">STAFF</span>
+        <span style="color: #6c757d;">
+            — You have <strong>read-only administrative access</strong>:
+            View user list, view user details, view dashboard and reports.
+            Cannot add, edit, or delete users.
+        </span>
+        {% else %}
+        <span style="
+            color: #28a745;
+            font-weight: bold;
+            background: #fff;
+            padding: 3px 10px;
+            border-radius: 3px;
+            border: 1px solid #28a745;
+        ">REGULAR</span>
+        <span style="color: #6c757d;">
+            — You have <strong>no admin access</strong>.
+            Regular users cannot access the Django admin panel.
+        </span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

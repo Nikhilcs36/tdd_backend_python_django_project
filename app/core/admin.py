@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.utils.html import format_html
 from .models import User, LoginActivity
 from .email_service import send_verification_email, build_verification_url
 
@@ -8,7 +9,7 @@ from .email_service import send_verification_email, build_verification_url
 class UserAdmin(BaseUserAdmin):
     """Define the admin pages for users."""
     ordering = ['id']
-    list_display = ['username', 'email', 'email_verified_status']
+    list_display = ['username', 'email', 'role_badge', 'email_verified_status']
     search_fields = ['username', 'email']
     list_filter = ['email_verified', 'is_staff', 'is_superuser', 'is_active']
     fieldsets = (
@@ -74,6 +75,53 @@ class UserAdmin(BaseUserAdmin):
     def verify_emails(self, request, queryset):
         """Bulk action to mark selected users as email verified."""
         queryset.update(email_verified=True)
+
+    @admin.display(description='Role & Permissions')
+    def role_badge(self, obj):
+        """Return a colour-coded role badge with permission description."""
+        if obj.is_superuser:
+            color = '#dc3545'
+            label = 'Superuser'
+            permission = 'Full Access'
+        elif obj.is_staff:
+            color = '#ffc107'
+            label = 'Staff'
+            permission = 'Read-only Access'
+        else:
+            color = '#28a745'
+            label = 'Regular'
+            permission = 'Own Data Only'
+
+        return format_html(
+            '<span style="color: {}; font-weight: bold; '
+            'background: #f8f9fa; padding: 2px 8px; '
+            'border-radius: 3px;">{}</span> '
+            '<span style="color: #6c757d; font-size: 0.85em;">'
+            '- {}</span>',
+            color, label, permission
+        )
+
+    def permission_notice(self, obj):
+        """Return a detailed permission notice for the user."""
+        if obj.is_superuser:
+            return (
+                '<strong>Superuser</strong> — '
+                'Full administrative access: Create, Read, Update, '
+                'and Delete any user record. Full system configuration.'
+            )
+        elif obj.is_staff:
+            return (
+                '<strong>Staff</strong> — '
+                'Read-only administrative access: View user list, '
+                'view user details. '
+                'Cannot add, edit, or delete users.'
+            )
+        else:
+            return (
+                '<strong>Regular</strong> — '
+                'No admin access. Regular users cannot access the '
+                'Django admin panel.'
+            )
 
     def has_module_permission(self, request):
         """Allow staff and superusers to see the admin module."""
