@@ -1,3 +1,4 @@
+"""Tests for the admin site configuration."""
 from unittest.mock import patch
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
@@ -348,6 +349,145 @@ class AdminSiteTests(TestCase):
         unverified_user.refresh_from_db()
         self.assertTrue(self.user.email_verified)
         self.assertTrue(unverified_user.email_verified)
+
+    # ---- Role Badge & Permission Notice Tests ----
+
+    def test_role_badge_in_list_display(self):
+        """Test that role_badge is in list_display."""
+        self.assertIn('role_badge', self.user_admin.list_display)
+
+    def test_role_badge_returns_superuser_for_superuser(self):
+        """Test role_badge returns 'Superuser - Full Access' for superuser."""
+        result = self.user_admin.role_badge(self.admin_user)
+        self.assertIn('Superuser', result)
+        self.assertIn('Full Access', result)
+
+    def test_role_badge_returns_staff_for_staff_user(self):
+        """Test role_badge returns 'Staff - Read-only Access' for staff."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser',
+            email='staff@example.com',
+            password='password123',
+            is_staff=True
+        )
+        result = self.user_admin.role_badge(staff_user)
+        self.assertIn('Staff', result)
+        self.assertIn('Read-only', result)
+
+    def test_role_badge_returns_regular_for_regular_user(self):
+        """Test role_badge returns correct badge for regular user."""
+        result = self.user_admin.role_badge(self.user)
+        self.assertIn('Regular', result)
+        self.assertIn('Own Data', result)
+
+    def test_role_badge_contains_html_formatting(self):
+        """Test that role_badge returns HTML with styling."""
+        result = self.user_admin.role_badge(self.admin_user)
+        self.assertIn('<span', result)
+        self.assertIn('style=', result)
+
+    def test_role_badge_superuser_has_red_color(self):
+        """Test superuser badge has red color styling."""
+        result = self.user_admin.role_badge(self.admin_user)
+        self.assertIn('color:', result)
+
+    def test_role_badge_appears_on_user_list_page(self):
+        """Test that role badge appears on the user list page."""
+        url = reverse('admin:core_user_changelist')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Superuser')
+        self.assertContains(res, 'Full Access')
+
+    def test_role_badge_appears_for_staff_on_user_list(self):
+        """Test that role badge for staff user appears on list page."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser',
+            email='staff@example.com',
+            password='password123',
+            is_staff=True
+        )
+        self.client.force_login(staff_user)
+        url = reverse('admin:core_user_changelist')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Staff')
+        self.assertContains(res, 'Read-only')
+
+    def test_permission_notice_method_exists(self):
+        """Test that permission_notice method exists on UserAdmin."""
+        self.assertTrue(hasattr(self.user_admin, 'permission_notice'))
+
+    def test_permission_notice_superuser_returns_full_access(self):
+        """Test permission_notice returns full access message for superuser."""
+        result = self.user_admin.permission_notice(self.admin_user)
+        self.assertIn('Superuser', result)
+        self.assertIn('Full', result)
+
+    def test_permission_notice_staff_returns_read_only(self):
+        """Test permission_notice returns read-only message for staff."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser',
+            email='staff@example.com',
+            password='password123',
+            is_staff=True
+        )
+        result = self.user_admin.permission_notice(staff_user)
+        self.assertIn('Staff', result)
+        self.assertIn('Read-only', result)
+
+    def test_permission_notice_regular_returns_no_admin(self):
+        """Test permission_notice returns no admin access for regular user."""
+        result = self.user_admin.permission_notice(self.user)
+        self.assertIn('Regular', result)
+        self.assertIn('No admin', result)
+
+    def test_permission_notice_appears_on_change_page(self):
+        """Test that permission notice appears on user change page."""
+        url = reverse('admin:core_user_change', args=[self.user.id])
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        # The change page should contain the role banner from the template
+        self.assertContains(res, 'SUPERUSER')
+        self.assertContains(res, 'Full access')
+
+    def test_role_header_banner_appears_on_admin_index(self):
+        """Test that role header banner appears on admin index page."""
+        url = reverse('admin:index')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        # Check for the role badge content in the response
+        self.assertContains(res, 'SUPERUSER')
+        self.assertContains(res, 'Full access')
+
+    def test_role_header_banner_for_staff_on_index(self):
+        """Test that role header banner shows correct info for staff."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser',
+            email='staff@example.com',
+            password='password123',
+            is_staff=True
+        )
+        self.client.force_login(staff_user)
+        url = reverse('admin:index')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'STAFF')
+        self.assertContains(res, 'Read-only')
+
+    def test_role_header_banner_appears_on_user_list(self):
+        """Test that role header banner appears on user list page."""
+        url = reverse('admin:core_user_changelist')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'SUPERUSER')
+
+    def test_short_description_on_role_badge(self):
+        """Test that role_badge has a short_description."""
+        self.assertEqual(
+            self.user_admin.role_badge.short_description,
+            'Role & Permissions'
+        )
 
 
 class LoginActivityAdminTests(TestCase):
