@@ -489,6 +489,96 @@ class AdminSiteTests(TestCase):
             'Role & Permissions'
         )
 
+    # ---- Admin Login Restriction Tests ----
+
+    def test_regular_user_sees_restricted_message_on_admin_login(self):
+        """Test that a regular user sees a restricted message
+        when trying to log into admin."""
+        # Log out first to avoid being already logged in
+        self.client.logout()
+        # Create a regular user (not staff, not superuser)
+        get_user_model().objects.create_user(
+            username='regularuser',
+            email='regular@example.com',
+            password='password123'
+        )
+
+        # Attempt to log in via the admin login page
+        url = reverse('admin:login')
+        data = {
+            'username': 'regularuser',
+            'password': 'password123',
+        }
+        res = self.client.post(url, data, follow=True)
+
+        # Should still be on the login page (not redirected to admin index)
+        self.assertContains(res, 'Please log in again')
+        self.assertContains(res, 'admin access')
+        self.assertContains(res, 'Regular users')
+
+    def test_staff_user_can_login_to_admin(self):
+        """Test that a staff user can successfully log into admin."""
+        # Log out first to avoid being already logged in
+        self.client.logout()
+        get_user_model().objects.create_user(
+            username='staffuser',
+            email='staff@example.com',
+            password='password123',
+            is_staff=True
+        )
+
+        url = reverse('admin:login')
+        data = {
+            'username': 'staffuser',
+            'password': 'password123',
+            'next': reverse('admin:index'),
+        }
+        res = self.client.post(url, data, follow=True)
+
+        # Should be redirected to admin index
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'STAFF')
+        self.assertContains(res, 'Read-only')
+
+    def test_superuser_can_login_to_admin(self):
+        """Test that a superuser can successfully log into admin."""
+        # Log out first to avoid being already logged in
+        self.client.logout()
+        url = reverse('admin:login')
+        data = {
+            'username': 'admin',
+            'password': 'password123',
+            'next': reverse('admin:index'),
+        }
+        res = self.client.post(url, data, follow=True)
+
+        # Should be redirected to admin index
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'SUPERUSER')
+        self.assertContains(res, 'Full access')
+
+    def test_regular_user_login_redirects_back_to_login_page(self):
+        """Test that a regular user is redirected back to login page
+        after attempting admin login."""
+        get_user_model().objects.create_user(
+            username='regularuser2',
+            email='regular2@example.com',
+            password='password123'
+        )
+
+        url = reverse('admin:login')
+        data = {
+            'username': 'regularuser2',
+            'password': 'password123',
+        }
+        res = self.client.post(url, data, follow=True)
+
+        # Should be on the login page (not admin index)
+        self.assertContains(res, 'id="login-form"')
+        # Should NOT contain admin dashboard content
+        self.assertNotContains(res, 'STAFF')
+        self.assertNotContains(res, 'SUPERUSER')
+
 
 class LoginActivityAdminTests(TestCase):
     """Test cases for LoginActivity admin registration."""

@@ -22,10 +22,12 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
     SpectacularRedocView,
 )
+from sites import StaffOnlyAuthenticationForm
 
 admin.site.site_header = 'Login Tracking Dashboard'
 admin.site.site_title = 'Login Tracking Dashboard'
 admin.site.index_title = 'Dashboard'
+admin.site.login_form = StaffOnlyAuthenticationForm
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -43,7 +45,6 @@ urlpatterns = [
     path('api/user/', include('user.urls')),
     path('api/game/', include('game.urls')),
 ]
-
 # Serve media files during development only
 if settings.DEBUG:
     urlpatterns += static(
