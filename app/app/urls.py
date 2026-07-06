@@ -27,6 +27,7 @@ from sites import StaffOnlyAuthenticationForm
 admin.site.site_header = 'Login Tracking Dashboard'
 admin.site.site_title = 'Login Tracking Dashboard'
 admin.site.index_title = 'Dashboard'
+admin.site.site_url = settings.FRONTEND_BASE_URL
 admin.site.login_form = StaffOnlyAuthenticationForm
 
 urlpatterns = [
