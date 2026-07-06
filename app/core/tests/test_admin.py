@@ -311,6 +311,15 @@ class AdminSiteTests(TestCase):
         """Test that admin index title is set to 'Dashboard'"""
         self.assertEqual(admin.site.index_title, 'Dashboard')
 
+    def test_admin_site_url_points_to_frontend(self):
+        """Test that admin site_url points to the frontend base URL."""
+        from django.conf import settings
+        self.assertEqual(
+            admin.site.site_url,
+            settings.FRONTEND_BASE_URL,
+            'View site link should point to the frontend application'
+        )
+
     def test_admin_site_header_appears_on_change_page(self):
         """Test that site header appears on the user change page"""
         url = reverse('admin:core_user_change', args=[self.user.id])
