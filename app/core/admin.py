@@ -160,14 +160,26 @@ class LoginActivityAdmin(admin.ModelAdmin):
     ordering = ['-timestamp']
     list_per_page = 25
 
+    def has_module_permission(self, request):
+        """Allow staff and superusers to see the Login Activity module."""
+        return request.user.is_active and (
+            request.user.is_superuser or request.user.is_staff
+        )
+
     def has_add_permission(self, request):
         """Prevent adding login activity records via admin."""
         return False
 
+    def has_view_permission(self, request, obj=None):
+        """Allow both superusers and staff to view login activity records."""
+        return request.user.is_active and (
+            request.user.is_superuser or request.user.is_staff
+        )
+
     def has_change_permission(self, request, obj=None):
-        """Allow viewing but prevent editing of login activity records."""
-        return True
+        """Prevent any editing of login activity records."""
+        return False
 
     def has_delete_permission(self, request, obj=None):
-        """Prevent deleting login activity records via admin."""
-        return False
+        """Only superusers can delete login activity records."""
+        return request.user.is_superuser

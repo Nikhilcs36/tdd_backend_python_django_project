@@ -675,17 +675,21 @@ class LoginActivityAdminTests(TestCase):
             ['-timestamp']
         )
 
-    def test_login_activity_detail_page_shows_all_fields(self):
-        """Test that login activity detail page shows all fields."""
+    def test_login_activity_change_page_loads_read_only(self):
+        """Test that change page loads in read-only mode for all users."""
         url = reverse(
             'admin:core_loginactivity_change',
             args=[self.login_activity.id]
         )
         res = self.client.get(url)
+        # Django returns 200 with read-only display when
+        # has_change_permission is False
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, self.regular_user.username)
         self.assertContains(res, '192.168.1.1')
         self.assertContains(res, 'Mozilla/5.0')
+        # Ensure there's no submit button (read-only mode)
+        self.assertNotContains(res, 'name="_save"')
 
     def test_login_activity_add_permission_denied_for_all(self):
         """Test that no one can add login activity via admin."""
@@ -693,14 +697,37 @@ class LoginActivityAdminTests(TestCase):
         res = self.client.get(url)
         self.assertEqual(res.status_code, 403)
 
-    def test_login_activity_delete_permission_denied_for_superuser(self):
-        """Test that superuser cannot delete login activity via admin."""
+    def test_superuser_can_delete_login_activity(self):
+        """Test that superuser can delete login activity via admin."""
         url = reverse(
             'admin:core_loginactivity_delete',
             args=[self.login_activity.id]
         )
         res = self.client.get(url)
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 200)
+
+    def test_login_activity_module_appears_in_admin_index(self):
+        """Test that Login Activity module appears in admin index
+        for superuser."""
+        url = reverse('admin:index')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Login Activities')
+
+    def test_login_activity_module_appears_for_staff(self):
+        """Test that Login Activity module appears in admin index
+        for staff user."""
+        staff_user = get_user_model().objects.create_user(
+            username='staffuser0',
+            email='staff0@example.com',
+            password='password123',
+            is_staff=True
+        )
+        self.client.force_login(staff_user)
+        url = reverse('admin:index')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Login Activities')
 
     def test_staff_can_view_login_activity_list(self):
         """Test that staff can view the login activity list."""
