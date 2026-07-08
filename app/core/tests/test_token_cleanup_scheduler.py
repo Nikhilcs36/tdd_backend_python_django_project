@@ -1,9 +1,14 @@
 """
 Tests for the token cleanup scheduler.
 """
+import logging
 from unittest.mock import patch, MagicMock
 from django.test import SimpleTestCase
-from core.token_cleanup_scheduler import start_scheduler, _scheduler_started
+from core.token_cleanup_scheduler import (
+    start_scheduler,
+    _scheduler_started,
+    run_cleanup,
+)
 
 
 class TokenCleanupSchedulerTests(SimpleTestCase):
@@ -35,7 +40,6 @@ class TokenCleanupSchedulerTests(SimpleTestCase):
         self, mock_threading, mock_schedule
     ):
         """Test that run_cleanup calls the management command."""
-        from core.token_cleanup_scheduler import run_cleanup
         with patch(
             'core.token_cleanup_scheduler.call_command'
         ) as mock_call_command:
@@ -51,13 +55,17 @@ class TokenCleanupSchedulerTests(SimpleTestCase):
         self, mock_threading, mock_schedule
     ):
         """Test that run_cleanup does not crash on errors."""
-        from core.token_cleanup_scheduler import run_cleanup
         with patch(
             'core.token_cleanup_scheduler.call_command'
         ) as mock_call_command:
             mock_call_command.side_effect = Exception('Test error')
-            # Should not raise
-            run_cleanup()
+            # Should not raise (and suppress the expected ERROR traceback)
+            with patch.object(
+                logging.getLogger('core.token_cleanup_scheduler'),
+                'level',
+                logging.CRITICAL,
+            ):
+                run_cleanup()
 
     @patch('core.token_cleanup_scheduler.schedule')
     @patch('core.token_cleanup_scheduler.threading')
