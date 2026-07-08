@@ -406,12 +406,17 @@ You can customize the application by modifying the following files:
 ### Core Application Files
 - `app/core/models.py` - Database models for User and LoginActivity
 - `app/core/views.py` - Core application views and logic
-- `app/core/admin.py` - Admin interface configuration (UserAdmin, LoginActivityAdmin, custom site header: "Login Tracking Dashboard")
+- `app/core/admin.py` - Admin interface configuration (UserAdmin with role badges, LoginActivityAdmin with granular permissions)
+- `app/core/apps.py` - App config that starts the daily token cleanup scheduler on Django startup
+- `app/core/token_cleanup_scheduler.py` - Background scheduler that automatically cleans expired blacklisted JWT tokens every 24 hours
 - `app/core/email_service.py` - Email sending logic and URL building
 - `app/core/authentication.py` - Custom email-based authentication backend
 - `app/core/exceptions.py` - Custom exception handler for JWT errors
 - `app/core/middleware.py` - Login tracking middleware
 - `app/core/templates/email/` - HTML email templates
+- `app/core/templates/admin/base_site.html` - Custom admin template with role-based permission banner
+- `app/templates/admin/base_site.html` - Custom admin template with role-based permission banner and responsive header styling
+- `app/sites.py` - StaffOnlyAuthenticationForm that blocks regular users from logging into Django admin
 
 ### User Management Files
 - `app/user/models.py` - User-related models (if any extensions)
@@ -479,9 +484,33 @@ The admin site features a custom header: **"Login Tracking Dashboard"** with a *
 - **Bulk Email Verification**: Mark multiple users as email verified via admin action
 - **Login Activity Monitoring**: Monitor all user login activities
 - **Login Activity Records**: View-only admin interface for login activity records with search by username/IP, filter by success status and date range, sorted by most recent
+- **Game Score Records**: View-only admin interface for game scores with search by username/email, sorted by highest score
 - **Dashboard Analytics**: Access comprehensive admin dashboard
 - **Security Monitoring**: Track security events and suspicious activities
 - **Role-based Access Control**: Only superusers can add, edit, or delete users; staff users have view-only access
+
+### Admin Authentication
+- **Staff-Only Login**: Regular users are blocked from logging into the Django admin panel. Only users with `is_staff` or `is_superuser` privileges can access the admin login page. Non-staff users see a clear error message: *"Your account does not have admin access. Please log in again with a staff or superuser account."*
+
+### Admin Navigation & UI
+- **Frontend "View site" Link**: The "View site" link in the admin header redirects to the frontend application (configured via `FRONTEND_BASE_URL`) instead of the backend root URL
+- **Role Badge Display**: The user list page shows a colour-coded role badge for each user:
+  - **Superuser** (red) — Full administrative access: Create, Read, Update, and Delete any user record
+  - **Staff** (yellow) — Read-only administrative access: View user list, view user details. Cannot add, edit, or delete users
+  - **Regular** (green) — Own data only. Regular users cannot access the Django admin panel
+- **Permission Info Banner**: A permission banner is displayed at the top of every admin page, showing the logged-in user's role and a description of their access level
+
+### Granular Admin Permissions
+
+| Model | Superuser | Staff |
+|-------|-----------|-------|
+| **User** | Full CRUD (add, change, view, delete) | View-only (can view user list & details) |
+| **LoginActivity** | View & Delete (no add/edit) | View-only (no add/edit/delete) |
+| **GameScore** | View & Delete (no add/edit) | View-only (no add/edit/delete) |
+
+- **LoginActivityAdmin**: View-only for staff (search by username/email/IP, filter by success/date). Only superusers can delete records. No one can add or edit login activity records via admin.
+- **GameScoreAdmin**: View-only for staff (search by username/email, filter by score/date). Only superusers can delete records. No one can add or edit game scores via admin.
+- **Bulk Email Verification**: Admin action to mark multiple users as email verified
 
 ---
 
