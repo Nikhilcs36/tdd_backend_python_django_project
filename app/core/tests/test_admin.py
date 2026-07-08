@@ -1,4 +1,5 @@
 """Tests for the admin site configuration."""
+import logging
 from unittest.mock import patch
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
@@ -171,7 +172,10 @@ class AdminSiteTests(TestCase):
         )
         self.client.force_login(staff_user)
         url = reverse('admin:core_user_add')
-        res = self.client.get(url)
+        with patch.object(
+            logging.getLogger('django.request'), 'level', logging.ERROR
+        ):
+            res = self.client.get(url)
         self.assertEqual(res.status_code, 403)
 
     def test_staff_cannot_delete_user_via_admin(self):
@@ -184,7 +188,10 @@ class AdminSiteTests(TestCase):
         )
         self.client.force_login(staff_user)
         url = reverse('admin:core_user_delete', args=[self.user.id])
-        res = self.client.get(url)
+        with patch.object(
+            logging.getLogger('django.request'), 'level', logging.ERROR
+        ):
+            res = self.client.get(url)
         self.assertEqual(res.status_code, 403)
 
     def test_staff_cannot_change_user_via_admin_post(self):
@@ -201,7 +208,10 @@ class AdminSiteTests(TestCase):
             'username': 'hacked_username',
             'email': self.user.email,
         }
-        res = self.client.post(url, data, follow=True)
+        with patch.object(
+            logging.getLogger('django.request'), 'level', logging.ERROR
+        ):
+            res = self.client.post(url, data, follow=True)
         # Should be forbidden
         self.assertEqual(res.status_code, 403)
         # Verify the username was NOT changed
@@ -694,7 +704,10 @@ class LoginActivityAdminTests(TestCase):
     def test_login_activity_add_permission_denied_for_all(self):
         """Test that no one can add login activity via admin."""
         url = reverse('admin:core_loginactivity_add')
-        res = self.client.get(url)
+        with patch.object(
+            logging.getLogger('django.request'), 'level', logging.ERROR
+        ):
+            res = self.client.get(url)
         self.assertEqual(res.status_code, 403)
 
     def test_superuser_can_delete_login_activity(self):
@@ -752,7 +765,10 @@ class LoginActivityAdminTests(TestCase):
         )
         self.client.force_login(staff_user)
         url = reverse('admin:core_loginactivity_add')
-        res = self.client.get(url)
+        with patch.object(
+            logging.getLogger('django.request'), 'level', logging.ERROR
+        ):
+            res = self.client.get(url)
         self.assertEqual(res.status_code, 403)
 
     def test_staff_cannot_delete_login_activity(self):
@@ -768,5 +784,8 @@ class LoginActivityAdminTests(TestCase):
             'admin:core_loginactivity_delete',
             args=[self.login_activity.id]
         )
-        res = self.client.get(url)
+        with patch.object(
+            logging.getLogger('django.request'), 'level', logging.ERROR
+        ):
+            res = self.client.get(url)
         self.assertEqual(res.status_code, 403)
