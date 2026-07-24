@@ -16,7 +16,7 @@ RUN python -m venv /py && \
     /py/bin/pip install --upgrade pip && \
     \
     # Install MySQL client library (runtime only)
-    apk add --no-cache mariadb-connector-c && \
+    apk add --no-cache mariadb-connector-c curl && \
     \
     # Install build dependencies for mysqlclient (temporary)
     apk add --no-cache --virtual .tmp-build-deps \
@@ -54,4 +54,4 @@ USER django-user
 # Use entrypoint script to ensure proper directory setup
 ENTRYPOINT ["/docker-entrypoint.sh"]
 # Production CMD uses Gunicorn (overridden by docker-compose.prod.yml, but set as default here)
-CMD ["gunicorn", "app.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+CMD ["gunicorn", "app.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--preload", "--timeout", "60"]

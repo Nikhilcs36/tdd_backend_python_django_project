@@ -8,7 +8,7 @@ services:
       sh -c "python manage.py wait_for_db &&
              python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-              gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+             gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 4 --preload --timeout 60"
     # ---------------------------------------------------------------
     # environment:                # Commented: .env.production handles DB config
     #   - DB_HOST=db              # Uncomment these if NOT using RDS (Docker MySQL)
@@ -21,6 +21,12 @@ services:
         required: true
     # depends_on:                 # Using RDS instead of Docker MySQL
     #   - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/admin/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     volumes:
       - app-media:/app/media
       - app-static:/app/static
@@ -63,8 +69,10 @@ services:
       - app-media:/media
       - app-static:/static
     depends_on:
-      - app
-      - frontend
+      app:
+        condition: service_healthy
+      frontend:
+        condition: service_started
     networks:
       - tdd-network
     restart: unless-stopped
