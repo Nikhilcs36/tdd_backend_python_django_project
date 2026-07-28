@@ -329,6 +329,50 @@ python manage.py runserver
 2. **API Documentation**: View interactive API docs at `http://localhost:8000/api/docs/`
 3. **Admin Interface**: Access Django admin at `http://localhost:8000/admin/`
 
+### Seed Data / Demo Users
+
+For a quick hands-on experience, the project includes a `seed_data` management command that populates the database with demo users, realistic login activity (spanning the last 3 months), and sample game scores. This lets you explore the dashboard with data already in place — no manual setup required.
+
+**Docker** runs `seed_data` automatically on startup (see the `command` in `docker-compose.yml`), so no manual step is needed on a fresh database.
+
+If you ever need to re-seed after wiping the database (e.g., `docker-compose down -v`), run:
+
+**Docker:**
+```bash
+docker-compose run --rm app sh -c "python manage.py seed_data"
+```
+
+**Local (manual only — not automatic):**
+```bash
+cd app
+python manage.py seed_data
+```
+
+> **Note:** The command only runs on an empty database. If users already exist, it skips to avoid duplicates.
+
+#### Demo User Credentials
+
+| Username  | Email              | Password    | Role      | Notes |
+|-----------|--------------------|-------------|-----------|-------|
+| `admin`   | admin@demo.com     | `Admin@123` | Superuser | Full access, 100 login records, 6 game scores |
+| `normal`  | normal@demo.com    | `Test@123456` | Regular | Verified, staff access granted, 25 login records, 4 game scores |
+| `staff`   | staff@demo.com     | `Test@123456` | Staff   | Verified, 10 login records, 3 game scores |
+| `abcd`    | abcd@demo.com      | `Test@123456` | Regular | **Unverified** — use this to test email verification flow |
+| `testuser`| testuser@demo.com  | `Test@123456` | Regular | Verified, **no login activity** — clean slate dashboard |
+
+> **Tip:** `abcd` is intentionally left unverified. Since `abcd@demo.com` is not a real inbox, you can manually approve email verification by logging into the Django admin at `http://localhost:8000/admin/` with the superuser credentials (`admin@demo.com` / `Admin@123`), editing the `abcd` user, and checking **Email verified**.
+
+#### Normal Registration (Real Steps Experience)
+
+While the demo users let you jump straight into the dashboard, we recommend going through the normal registration flow to experience the complete lifecycle:
+
+1. **Register** a new account via `POST /api/user/create/`
+2. **Verify your email** via the verification link sent to your inbox (requires SMTP configured in `.env`)
+3. **Log in** — after 3 successful logins, you'll automatically receive staff access
+4. **Explore** your personal dashboard, charts, and login activity as it builds up naturally
+
+This flow gives you the full picture of how the application works end-to-end, including email verification, welcome emails, auto staff access, and real-time login tracking.
+
 ### Using the Login Tracking Dashboard
 
 1. **User Registration**: Register a new user account
