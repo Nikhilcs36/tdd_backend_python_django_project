@@ -1,10 +1,23 @@
 # TDD Backend Python Django Project - Login Tracking Dashboard
 
+## Project Overview
+
+The aim of this project is to provide a comprehensive **Login Tracking Dashboard** that helps administrators monitor user authentication activity, analyze login patterns, manage users through role-based dashboards, and generate comprehensive reports.
+
+## Key Purposes
+
+- **Authentication Monitoring**: Track all user login attempts — successful and failed — in real time, with detailed logging of IP addresses, user agents, and timestamps.
+- **Login Analytics**: Analyze login patterns through daily, weekly, and monthly trends, distribution analysis by time of day and day of week, and comparison across time periods.
+- **User Management**: Manage users with tiered dashboards — regular users view their own activity while administrators have full visibility with advanced filtering by role, date range, and user IDs.
+- **Reporting**: Generate and download comprehensive login activity summary reports in professionally formatted Excel (.xlsx), available in individual and grouped modes.
+- **Secure Authentication**: Enforce JWT token-based authentication with RSA-encrypted credentials, token blacklisting, email verification, and automatic staff access progression.
+- **Administrative Insights**: Provide admins with combined chart data across multiple users, batch user statistics, role-based filtering, and a comprehensive Django admin interface with granular permissions.
+- **Gamification & Engagement**: Provide a circle drawing game backend for score submission, personal score tracking, and admin leaderboards, with feature flag controls for enabling/disabling game sections.
+- **REST API Foundation**: Deliver a well-structured, test-driven REST API with Swagger/ReDoc documentation, designed to pair seamlessly with a React frontend over Docker.
+
 ## Description
 
 This repository contains the backend code for a comprehensive **Login Tracking Dashboard** built using Django and Django Rest Framework. The project is developed using Test-Driven Development (TDD) methodology and provides advanced user authentication, detailed login analytics, and comprehensive dashboard functionality. This backend serves as the foundation for monitoring user login activities, tracking authentication patterns, and providing valuable insights through a powerful REST API.
-
-The primary focus of this project is the **Login Tracking Dashboard**, which offers real-time analytics and statistics about user login behavior, trends, and patterns. The system includes secure authentication mechanisms, user management, role-based dashboard access, a circle drawing game backend, and downloadable Excel reports to ensure data security and proper access control.
 
 ---
 
